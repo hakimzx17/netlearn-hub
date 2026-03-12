@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <!--
+  ╔══════════════════════════════════════════════════════════════╗
+  ║         NETWORK LEARNING PLATFORM — Entry Point             ║
+  ║  Responsibility: Shell HTML. Loads CSS and bootstraps app.  ║
+  ║  No logic lives here. All behavior is in /js/app.js         ║
+  ╚══════════════════════════════════════════════════════════════╝
+  -->
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NetLearn — Interactive Networking Education Platform</title>
+
+  <!-- Layer 1: CSS Design System -->
+  <link rel="stylesheet" href="css/base.css" />
+  <link rel="stylesheet" href="css/layout.css" />
+  <link rel="stylesheet" href="css/animations.css" />
+  <link rel="stylesheet" href="css/themes.css" />
+</head>
+
+<body>
+
+  <!-- Navigation Component Mount Point -->
+  <div id="navbar-root"></div>
+
+  <!-- Primary Application Shell -->
+  <div id="app-shell">
+
+    <!-- Sidebar Navigation -->
+    <aside id="sidebar-root"></aside>
+
+    <!-- Main Content Area: Router injects module views here -->
+    <main id="view-root"></main>
+
+  </div>
+
+  <!-- Global Modal Mount Point -->
+  <div id="modal-root"></div>
+
+  <!-- Toast / Notification Mount Point -->
+  <div id="toast-root"></div>
+
+  <!-- Bootstrap: ES6 module entry point -->
+  <script type="module" src="js/app.js"></script>
+
+</body>
+
+</html>

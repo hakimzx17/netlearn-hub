@@ -1,0 +1,513 @@
+/*
+ * themes.css — Visual Theme Definitions
+ * Responsibility: Network device colors, dark/light mode, module themes.
+ * Overrides variables from base.css.
+ */
+
+/* ═══════════════════════════════════════════
+   DEFAULT THEME (dark — Network Ops Center)
+   Already defined in base.css :root
+   ═══════════════════════════════════════════ */
+
+/* ═══════════════════════════════════════════
+   LIGHT THEME (optional override)
+   ═══════════════════════════════════════════ */
+[data-theme="light"] {
+  --color-bg-deepest:   #f0f4f8;
+  --color-bg-dark:      #e8eef5;
+  --color-bg-medium:    #dde5ef;
+  --color-bg-panel:     #ffffff;
+  --color-bg-raised:    #f8fafc;
+  --color-bg-surface:   #edf2f7;
+  --color-text-primary:   #0d1520;
+  --color-text-secondary: #3a5068;
+  --color-text-muted:     #7a9ab5;
+  --color-border:       rgba(0, 60, 100, 0.12);
+  --color-border-hover: rgba(0, 60, 100, 0.3);
+}
+
+/* ═══════════════════════════════════════════
+   NETWORK DEVICE COLOR SYSTEM
+   Applied to SVG nodes in networkDiagram.js
+   ═══════════════════════════════════════════ */
+
+/* SVG device node base styles */
+.device-node { cursor: pointer; }
+
+.device-node__body {
+  stroke-width: 2;
+  transition: filter 200ms ease;
+}
+.device-node:hover .device-node__body {
+  filter: brightness(1.2);
+}
+
+/* Router — orange/red */
+.device-router .device-node__body {
+  fill: rgba(255,112,67,0.15);
+  stroke: var(--color-router);
+}
+.device-router .device-node__label { fill: var(--color-router); }
+.device-router .device-node__icon  { color: var(--color-router); }
+
+/* Switch — purple */
+.device-switch .device-node__body {
+  fill: rgba(171,71,188,0.15);
+  stroke: var(--color-switch);
+}
+.device-switch .device-node__label { fill: var(--color-switch); }
+
+/* PC / Host — blue */
+.device-pc .device-node__body {
+  fill: rgba(66,165,245,0.15);
+  stroke: var(--color-pc);
+}
+.device-pc .device-node__label { fill: var(--color-pc); }
+
+/* Server — teal */
+.device-server .device-node__body {
+  fill: rgba(38,166,154,0.15);
+  stroke: var(--color-server);
+}
+.device-server .device-node__label { fill: var(--color-server); }
+
+/* Cloud — grey */
+.device-cloud .device-node__body {
+  fill: rgba(120,144,156,0.15);
+  stroke: var(--color-cloud);
+}
+.device-cloud .device-node__label { fill: var(--color-cloud); }
+
+/* Network links */
+.network-link {
+  stroke: var(--color-border);
+  stroke-width: 2;
+  transition: stroke var(--transition-fast);
+}
+.network-link:hover { stroke: var(--color-border-hover); }
+.network-link.is-active { stroke: var(--color-cyan); stroke-width: 2.5; }
+
+/* ═══════════════════════════════════════════
+   MODULE CATEGORY COLOR THEMES
+   ═══════════════════════════════════════════ */
+
+/* Headers / IPv4 — cyan */
+.theme-headers { --module-color: var(--color-cyan); --module-color-bg: var(--color-cyan-glow); }
+
+/* Simulation — amber */
+.theme-simulation { --module-color: var(--color-amber); --module-color-bg: rgba(255,184,0,0.1); }
+
+/* Subnetting — green */
+.theme-subnetting { --module-color: var(--color-green); --module-color-bg: rgba(0,230,118,0.1); }
+
+/* Exam — error/red */
+.theme-exam { --module-color: var(--color-error); --module-color-bg: rgba(255,68,68,0.1); }
+
+/* Apply module color to headings in themed contexts */
+.module-theme h2, .module-theme h3 { color: var(--module-color); }
+.module-theme .info-panel__title   { color: var(--module-color); }
+.module-theme .step-indicator__dot.is-active {
+  background: var(--module-color);
+  border-color: var(--module-color);
+}
+
+/* ═══════════════════════════════════════════
+   OSI LAYER COLORS
+   Used by osiTcpipVisualizer module
+   ═══════════════════════════════════════════ */
+:root {
+  --osi-l7: #ef5350;
+  --osi-l6: #ec407a;
+  --osi-l5: #ab47bc;
+  --osi-l4: #5c6bc0;
+  --osi-l3: #42a5f5;
+  --osi-l2: #26a69a;
+  --osi-l1: #66bb6a;
+}
+
+.osi-layer-7 { --layer-color: var(--osi-l7); }
+.osi-layer-6 { --layer-color: var(--osi-l6); }
+.osi-layer-5 { --layer-color: var(--osi-l5); }
+.osi-layer-4 { --layer-color: var(--osi-l4); }
+.osi-layer-3 { --layer-color: var(--osi-l3); }
+.osi-layer-2 { --layer-color: var(--osi-l2); }
+.osi-layer-1 { --layer-color: var(--osi-l1); }
+
+.osi-layer {
+  border-left: 4px solid var(--layer-color);
+  background: rgba(255,255,255,0.03);
+  transition: all var(--transition-fast);
+}
+.osi-layer:hover, .osi-layer.is-active {
+  background: color-mix(in srgb, var(--layer-color) 10%, transparent);
+  border-left-width: 6px;
+}
+
+/* ═══════════════════════════════════════════
+   BINARY VISUALIZATION
+   Used by subnet calculator and practice engine
+   ═══════════════════════════════════════════ */
+.binary-display {
+  font-family: var(--font-mono);
+  font-size: var(--text-base);
+  letter-spacing: 0.15em;
+  display: inline-flex;
+  gap: 2px;
+}
+
+.binary-bit {
+  width: 22px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-xs);
+  transition: all var(--transition-fast);
+  font-weight: 700;
+}
+
+.binary-bit.is-one  { color: var(--color-cyan);  background: rgba(0,212,255,0.1); }
+.binary-bit.is-zero { color: var(--color-text-muted); background: rgba(255,255,255,0.03); }
+.binary-bit.is-network { border-bottom: 2px solid var(--color-cyan); }
+.binary-bit.is-host    { border-bottom: 2px solid var(--color-amber); }
+
+.binary-octet-sep {
+  color: var(--color-text-muted);
+  align-self: center;
+  font-weight: 300;
+  padding: 0 2px;
+}
+
+/* ═══════════════════════════════════════════
+   QUIZ / EXAM STATES
+   ═══════════════════════════════════════════ */
+.answer-option {
+  transition: all var(--transition-fast);
+  cursor: pointer;
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-bg-raised);
+}
+.answer-option:hover:not(.is-disabled) {
+  border-color: var(--color-border-hover);
+  background: var(--color-bg-surface);
+}
+.answer-option.is-selected   { border-color: var(--color-cyan);    background: var(--color-cyan-glow); }
+.answer-option.is-correct    { border-color: var(--color-success); background: rgba(0,230,118,0.1); }
+.answer-option.is-incorrect  { border-color: var(--color-error);   background: rgba(255,68,68,0.1); }
+.answer-option.is-disabled   { cursor: default; opacity: 0.7; }
+
+/* Score display */
+.score-display {
+  font-family: var(--font-mono);
+  font-size: var(--text-4xl);
+  font-weight: 700;
+  color: var(--color-cyan);
+  text-shadow: 0 0 20px rgba(0,212,255,0.4);
+}
+
+/* ═══════════════════════════════════════════
+   TOAST NOTIFICATIONS
+   ═══════════════════════════════════════════ */
+.toast {
+  background: var(--color-bg-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-5);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 280px;
+  box-shadow: var(--shadow-lg);
+  pointer-events: all;
+  border-left-width: 3px;
+}
+.toast.success { border-left-color: var(--color-success); }
+.toast.error   { border-left-color: var(--color-error); }
+.toast.info    { border-left-color: var(--color-cyan); }
+.toast.warning { border-left-color: var(--color-warning); }
+
+/* ═══════════════════════════════════════════════════
+   SIMULATION & MODULE SHARED STYLES
+   Injected by Phase 6 — used by all simulation modules
+   ═══════════════════════════════════════════════════ */
+
+/* ── Simulation canvas wrapper ───────────────────── */
+.sim-canvas {
+  background: var(--color-bg-medium);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
+}
+
+.sim-canvas svg {
+  display: block;
+  max-width: 100%;
+}
+
+/* ── Control bar ────────────────────────────────── */
+.control-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  padding: 0.5rem 0.75rem;
+  background: var(--color-bg-medium);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+}
+
+/* ── Step indicator dots ────────────────────────── */
+.step-indicator {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.step-indicator__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-bg-raised);
+  border: 1px solid var(--color-border);
+  transition: all var(--transition-fast);
+}
+
+.step-indicator__dot.is-active {
+  background: var(--color-cyan);
+  border-color: var(--color-cyan);
+  box-shadow: 0 0 6px var(--color-cyan);
+}
+
+.step-indicator__dot.is-done {
+  background: var(--color-success);
+  border-color: var(--color-success);
+}
+
+/* ── Info panel ─────────────────────────────────── */
+.info-panel {
+  background: var(--color-bg-panel);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+}
+
+.info-panel__title {
+  font-family: var(--font-display);
+  font-size: var(--text-md);
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin-bottom: 0.6rem;
+}
+
+/* ── Module header ──────────────────────────────── */
+.module-header {
+  margin-bottom: 1.5rem;
+}
+
+.module-header__breadcrumb {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  margin-bottom: 0.4rem;
+}
+
+.module-header__breadcrumb a {
+  color: var(--color-cyan);
+  text-decoration: none;
+}
+
+.module-header__breadcrumb a:hover {
+  text-decoration: underline;
+}
+
+.module-header__title {
+  font-family: var(--font-display);
+  font-size: clamp(1.25rem, 3vw, 1.75rem);
+  font-weight: 800;
+  color: var(--color-text-primary);
+  margin-bottom: 0.5rem;
+  line-height: 1.2;
+}
+
+.module-header__description {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  line-height: 1.8;
+  max-width: 680px;
+}
+
+/* ── Packet dot colours (SVG fill via CSS vars) ──── */
+.packet-dot {
+  fill: var(--color-packet);
+  filter: drop-shadow(0 0 4px var(--color-packet));
+}
+
+.packet-dot.broadcast {
+  fill: var(--color-warning);
+  filter: drop-shadow(0 0 5px var(--color-warning));
+}
+
+.packet-dot.icmp {
+  fill: var(--color-error);
+  filter: drop-shadow(0 0 5px var(--color-error));
+}
+
+.packet-dot.arp {
+  fill: var(--color-amber);
+  filter: drop-shadow(0 0 5px var(--color-amber));
+}
+
+/* ── Device node hover ─────────────────────────── */
+.device-node {
+  transition: filter var(--transition-fast);
+}
+
+.device-node:hover {
+  filter: drop-shadow(0 0 6px var(--color-cyan));
+}
+
+/* ── Network link active state ──────────────────── */
+.network-link {
+  transition: stroke 0.2s ease, stroke-width 0.2s ease;
+  stroke-linecap: round;
+}
+
+/* ── Score display (for quiz results) ──────────── */
+.score-display {
+  font-family: var(--font-display);
+  font-size: 4rem;
+  font-weight: 800;
+  color: var(--color-cyan);
+  line-height: 1;
+  margin-bottom: 0.25rem;
+}
+
+/* ── Animations referenced in keyframes ─────────── */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.anim-fade-in { animation: fadeInUp 0.35s ease; }
+
+/* ═══════════════════════════════════════════════════
+   PHASE 9 INTEGRATION — Global polish CSS
+   ═══════════════════════════════════════════════════ */
+
+/* ── Binary display (injected by subnetCalculator but
+      preloading here avoids flash-of-unstyled-content) ── */
+.binary-display {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.binary-bit {
+  display: inline-block;
+  width: 12px;
+  text-align: center;
+  border-radius: 2px;
+  padding: 1px 0;
+}
+
+.binary-bit.is-network { color: var(--color-cyan); font-weight: 700; }
+.binary-bit.is-host    { color: var(--color-amber); }
+.binary-bit.is-one.is-network { background: rgba(0,212,255,0.12); }
+.binary-bit.is-one.is-host    { background: rgba(255,184,0,0.12); }
+.binary-octet-sep { color: var(--color-text-muted); margin: 0 1px; }
+
+/* ── Module card completed state ─────────────────────── */
+.module-card[data-completed='true'] {
+  border-color: var(--color-success);
+}
+
+.module-card[data-completed='true']::before {
+  background: var(--color-success);
+}
+
+/* ── Exam progress dot bar ───────────────────────────── */
+.exam-dot {
+  transition: background 0.25s ease, border-color 0.25s ease;
+}
+
+/* ── Review nav button hover ─────────────────────────── */
+.review-nav-btn:hover {
+  opacity: 0.8;
+  transform: scale(1.1);
+}
+
+/* ── Layout: card grid variants ──────────────────────── */
+.layout-3col-auto {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+/* ── Scrollable hop log ──────────────────────────────── */
+#ttl-hop-log {
+  max-height: 220px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
+
+/* ── Sidebar completion dots ─────────────────────────── */
+.sidebar__nav-item[data-completed='true']::after {
+  content: '✓';
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--color-success);
+  opacity: 0.8;
+}
+
+/* ── Dashboard stats bar ─────────────────────────────── */
+.dashboard__stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 2rem;
+}
+
+.stat-card {
+  background: var(--color-bg-panel);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 0.75rem 1rem;
+  text-align: center;
+}
+
+.stat-card__value {
+  font-family: var(--font-mono);
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: var(--color-cyan);
+  line-height: 1;
+}
+
+.stat-card__label {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  margin-top: 0.3rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* ── Keyboard shortcut chip ──────────────────────────── */
+.kbd {
+  display: inline-block;
+  padding: 1px 5px;
+  background: var(--color-bg-raised);
+  border: 1px solid var(--color-border);
+  border-radius: 3px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
