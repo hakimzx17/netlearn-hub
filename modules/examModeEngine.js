@@ -105,7 +105,7 @@ class ExamModeEngine {
   }
 
   _computeAnalytics(history) {
-    if (!history || history.length === 0) {
+    if (!history || !Array.isArray(history) || history.length === 0) {
       return { totalExams: 0, passRate: 0, avgScore: 0, streak: 0, weakDomains: [] };
     }
     
@@ -152,7 +152,8 @@ class ExamModeEngine {
   // ══════════════════════════════════════════════════════════════════════════
   _showLobby() {
     this._screen = 'lobby';
-    const history = stateManager.getState('examHistory') || [];
+    const rawHistory = stateManager.getState('examHistory');
+    const history = Array.isArray(rawHistory) ? rawHistory : [];
     const analytics = this._computeAnalytics(history);
     const last3   = history.slice(-3).reverse();
 
@@ -784,7 +785,8 @@ class ExamModeEngine {
   }
 
   _saveResult(result) {
-    const history = stateManager.getState('examHistory') || [];
+    const rawHistory = stateManager.getState('examHistory');
+    const history = Array.isArray(rawHistory) ? rawHistory : [];
     history.push({
       score: result.score, passed: result.passed,
       correct: result.correct, total: result.total,
