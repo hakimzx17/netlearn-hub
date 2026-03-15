@@ -879,10 +879,43 @@ class PacketJourneySimulator {
     });
   }
 
+  _shouldAbort() {
+    return this._isDestroyed || !this.container || !this._diagram;
+  }
+
+  _abortIfNeeded() {
+    if (this._shouldAbort()) {
+      const err = new Error('Packet journey aborted');
+      err.name = 'AbortError';
+      throw err;
+    }
+  }
+
+  _isAbortError(err) {
+    return err && err.name === 'AbortError';
+  }
+
+  async _sleepSafe(ms) {
+    this._abortIfNeeded();
+    await sleep(ms);
+    this._abortIfNeeded();
+  }
+
+  async _animatePacketSafe(path, packet) {
+    this._abortIfNeeded();
+    await this._diagram.animatePacket(path, packet);
+    this._abortIfNeeded();
+  }
+
+  _highlightNodeSafe(node, state, duration) {
+    if (this._shouldAbort()) return;
+    this._diagram.highlightNode(node, state, duration);
+  }
+
   async _runStep() {
     const journeySteps = getJourneySteps(this._currentScenario);
     if (this._step >= journeySteps.length || this._running) return;
-    if (this._isDestroyed || !this.container) return;
+    if (this._shouldAbort()) return;
     this._running = true;
 
     const step  = journeySteps[this._step];
@@ -942,7 +975,7 @@ class PacketJourneySimulator {
     }
 
     await this._executeAction(step.action, step, scenario);
-    if (this._isDestroyed || !this.container) { this._running = false; return; }
+    if (this._shouldAbort()) { this._running = false; return; }
     this._step++;
     this._running = false;
 
@@ -1093,10 +1126,15 @@ class PacketJourneySimulator {
 
   async _autoPlay() {
     const journeySteps = getJourneySteps(this._currentScenario);
-    while (this._step < journeySteps.length && !this._isDestroyed) {
-      await this._runStep();
-      await sleep(1200); // SLOWER auto-play for better understanding
-      if (this._isDestroyed) return;
+    try {
+      while (this._step < journeySteps.length && !this._shouldAbort()) {
+        await this._runStep();
+        await this._sleepSafe(1200); // SLOWER auto-play for better understanding
+        if (this._shouldAbort()) return;
+      }
+    } catch (err) {
+      if (this._isAbortError(err)) return;
+      throw err;
     }
   }
 
@@ -1105,209 +1143,215 @@ class PacketJourneySimulator {
     const isPing = this._currentScenario === 'ping';
     const isFTP = this._currentScenario === 'ftp';
     
-    switch (action) {
-      // DNS Cases (HTTP & FTP)
-      case 'dns_query':
-        this._diagram.highlightNode('client', 'active', 1000);
-        await sleep(800);
-        break;
+    try {
+      this._abortIfNeeded();
+      switch (action) {
+        // DNS Cases (HTTP & FTP)
+        case 'dns_query':
+          this._highlightNodeSafe('client', 'active', 1000);
+          await this._sleepSafe(800);
+          break;
 
-      case 'dns_query_travel':
-        await this._diagram.animatePacket(['client', 'switch1', 'fw', 'gw', 'dns'], { type: 'data', label: 'DNS Query', speed });
-        this._diagram.highlightNode('dns', 'hop', 1000);
-        this._arpCache['8.8.8.8'] = 'CC:DD:EE:11:22:33';
-        this._updateArpTable();
-        await sleep(400);
-        break;
+        case 'dns_query_travel':
+          await this._animatePacketSafe(['client', 'switch1', 'fw', 'gw', 'dns'], { type: 'data', label: 'DNS Query', speed });
+          this._highlightNodeSafe('dns', 'hop', 1000);
+          this._arpCache['8.8.8.8'] = 'CC:DD:EE:11:22:33';
+          this._updateArpTable();
+          await this._sleepSafe(400);
+          break;
 
-      case 'dns_reply':
-        await this._diagram.animatePacket(['dns', 'gw', 'fw', 'switch1', 'client'], { type: 'data', label: 'DNS Answer', speed });
-        this._diagram.highlightNode('client', 'success', 1000);
-        await sleep(600);
-        break;
+        case 'dns_reply':
+          await this._animatePacketSafe(['dns', 'gw', 'fw', 'switch1', 'client'], { type: 'data', label: 'DNS Answer', speed });
+          this._highlightNodeSafe('client', 'success', 1000);
+          await this._sleepSafe(600);
+          break;
 
-      // ICMP Specific Actions
-      case 'icmp_echo_req':
-        this._diagram.highlightNode('client', 'active', 600);
-        await sleep(400);
-        break;
+        // ICMP Specific Actions
+        case 'icmp_echo_req':
+          this._highlightNodeSafe('client', 'active', 600);
+          await this._sleepSafe(400);
+          break;
 
-      case 'icmp_echo_reply':
-        await this._diagram.animatePacket(['web', 'isp3', 'isp2', 'isp1', 'gw', 'fw', 'switch1', 'client'], { type: 'icmp', label: 'Echo Reply', speed: 320 });
-        await sleep(300);
-        break;
+        case 'icmp_echo_reply':
+          await this._animatePacketSafe(['web', 'isp3', 'isp2', 'isp1', 'gw', 'fw', 'switch1', 'client'], { type: 'icmp', label: 'Echo Reply', speed: 320 });
+          await this._sleepSafe(300);
+          break;
 
-      case 'icmp_return':
-        await this._diagram.animatePacket(['web', 'isp3', 'isp2', 'isp1', 'gw', 'fw', 'switch1', 'client'], { type: 'icmp', label: 'ICMP Reply', speed: 300 });
-        await sleep(300);
-        break;
+        case 'icmp_return':
+          await this._animatePacketSafe(['web', 'isp3', 'isp2', 'isp1', 'gw', 'fw', 'switch1', 'client'], { type: 'icmp', label: 'ICMP Reply', speed: 300 });
+          await this._sleepSafe(300);
+          break;
 
-      case 'icmp_complete':
-        this._diagram.highlightNode('client', 'success', 2000);
-        await sleep(800);
-        break;
+        case 'icmp_complete':
+          this._highlightNodeSafe('client', 'success', 2000);
+          await this._sleepSafe(800);
+          break;
 
-      // FTP Specific Actions
-      case 'ftp_user':
-        await this._diagram.animatePacket(['client', 'switch1', 'fw', 'gw', 'isp1', 'isp2', 'isp3', 'web'], { type: 'data', label: 'USER anon', speed: 300 });
-        await sleep(400);
-        break;
+        // FTP Specific Actions
+        case 'ftp_user':
+          await this._animatePacketSafe(['client', 'switch1', 'fw', 'gw', 'isp1', 'isp2', 'isp3', 'web'], { type: 'data', label: 'USER anon', speed: 300 });
+          await this._sleepSafe(400);
+          break;
 
-      case 'ftp_pass':
-        await this._diagram.animatePacket(['client', 'switch1', 'fw', 'gw', 'isp1', 'isp2', 'isp3', 'web'], { type: 'data', label: 'PASS ****', speed: 300 });
-        await sleep(400);
-        break;
+        case 'ftp_pass':
+          await this._animatePacketSafe(['client', 'switch1', 'fw', 'gw', 'isp1', 'isp2', 'isp3', 'web'], { type: 'data', label: 'PASS ****', speed: 300 });
+          await this._sleepSafe(400);
+          break;
 
-      case 'ftp_pasv':
-        await this._diagram.animatePacket(['web', 'isp3', 'isp2', 'isp1', 'gw', 'fw', 'switch1', 'client'], { type: 'data', label: '227 PASV', speed: 300 });
-        await sleep(400);
-        break;
+        case 'ftp_pasv':
+          await this._animatePacketSafe(['web', 'isp3', 'isp2', 'isp1', 'gw', 'fw', 'switch1', 'client'], { type: 'data', label: '227 PASV', speed: 300 });
+          await this._sleepSafe(400);
+          break;
 
-      case 'ftp_data_syn':
-        this._diagram.highlightNode('client', 'active', 600);
-        await sleep(400);
-        break;
+        case 'ftp_data_syn':
+          this._highlightNodeSafe('client', 'active', 600);
+          await this._sleepSafe(400);
+          break;
 
-      case 'ftp_retr':
-        await this._diagram.animatePacket(['client', 'switch1', 'fw', 'gw', 'isp1', 'isp2', 'isp3', 'web'], { type: 'data', label: 'RETR file', speed: 280 });
-        await sleep(300);
-        break;
+        case 'ftp_retr':
+          await this._animatePacketSafe(['client', 'switch1', 'fw', 'gw', 'isp1', 'isp2', 'isp3', 'web'], { type: 'data', label: 'RETR file', speed: 280 });
+          await this._sleepSafe(300);
+          break;
 
-      case 'ftp_transfer':
-        await this._diagram.animatePacket(['web', 'isp3', 'isp2', 'isp1', 'gw', 'fw', 'switch1', 'client'], { type: 'data', label: 'FILE DATA', speed: 260 });
-        await sleep(300);
-        break;
+        case 'ftp_transfer':
+          await this._animatePacketSafe(['web', 'isp3', 'isp2', 'isp1', 'gw', 'fw', 'switch1', 'client'], { type: 'data', label: 'FILE DATA', speed: 260 });
+          await this._sleepSafe(300);
+          break;
 
-      case 'ftp_complete':
-        await this._diagram.animatePacket(['web', 'isp3', 'isp2', 'isp1', 'gw', 'fw', 'switch1', 'client'], { type: 'data', label: '226 OK', speed: 280 });
-        await sleep(400);
-        break;
+        case 'ftp_complete':
+          await this._animatePacketSafe(['web', 'isp3', 'isp2', 'isp1', 'gw', 'fw', 'switch1', 'client'], { type: 'data', label: '226 OK', speed: 280 });
+          await this._sleepSafe(400);
+          break;
 
-      case 'ftp_quit':
-        await this._diagram.animatePacket(['client', 'switch1', 'fw', 'gw', 'isp1', 'isp2', 'isp3', 'web'], { type: 'data', label: 'QUIT', speed: 300 });
-        await this._diagram.animatePacket(['web', 'isp3', 'isp2', 'isp1', 'gw', 'fw', 'switch1', 'client'], { type: 'data', label: '221 Bye', speed: 300 });
-        this._natTable = {};
-        this._updateNatTable();
-        break;
+        case 'ftp_quit':
+          await this._animatePacketSafe(['client', 'switch1', 'fw', 'gw', 'isp1', 'isp2', 'isp3', 'web'], { type: 'data', label: 'QUIT', speed: 300 });
+          await this._animatePacketSafe(['web', 'isp3', 'isp2', 'isp1', 'gw', 'fw', 'switch1', 'client'], { type: 'data', label: '221 Bye', speed: 300 });
+          this._natTable = {};
+          this._updateNatTable();
+          break;
 
-      // TCP Cases (HTTP & FTP Control)
-      case 'tcp_syn':
-        this._diagram.highlightNode('client', 'active', 600);
-        await this._diagram.animatePacket(['client', 'switch1'], { type: 'data', label: isFTP ? 'SYN(21)' : 'SYN', speed: 350 });
-        break;
+        // TCP Cases (HTTP & FTP Control)
+        case 'tcp_syn':
+          this._highlightNodeSafe('client', 'active', 600);
+          await this._animatePacketSafe(['client', 'switch1'], { type: 'data', label: isFTP ? 'SYN(21)' : 'SYN', speed: 350 });
+          break;
 
-      case 'arp_client':
-        // ARP Request
-        await this._diagram.animatePacket(['client', 'switch1'], { type: 'broadcast', label: 'ARP WhoHas', speed: 350 });
-        await this._diagram.animatePacket(['switch1', 'fw'], { type: 'broadcast', label: 'ARP WhoHas', speed: 350 });
-        this._diagram.highlightNode('fw', 'hop', 600);
-        await sleep(200);
-        // ARP Reply
-        await this._diagram.animatePacket(['fw', 'switch1'], { type: 'data', label: 'ARP Reply', speed: 350 });
-        await this._diagram.animatePacket(['switch1', 'client'], { type: 'data', label: 'ARP Reply', speed: 350 });
-        this._arpCache['192.168.1.1'] = 'AA:BB:CC:44:55:66';
-        this._macTable['AA:BB:CC:11:22:33'] = 'Fa0/1';
-        this._updateMacTable();
-        this._updateArpTable();
-        await sleep(400);
-        break;
+        case 'arp_client':
+          // ARP Request
+          await this._animatePacketSafe(['client', 'switch1'], { type: 'broadcast', label: 'ARP WhoHas', speed: 350 });
+          await this._animatePacketSafe(['switch1', 'fw'], { type: 'broadcast', label: 'ARP WhoHas', speed: 350 });
+          this._highlightNodeSafe('fw', 'hop', 600);
+          await this._sleepSafe(200);
+          // ARP Reply
+          await this._animatePacketSafe(['fw', 'switch1'], { type: 'data', label: 'ARP Reply', speed: 350 });
+          await this._animatePacketSafe(['switch1', 'client'], { type: 'data', label: 'ARP Reply', speed: 350 });
+          this._arpCache['192.168.1.1'] = 'AA:BB:CC:44:55:66';
+          this._macTable['AA:BB:CC:11:22:33'] = 'Fa0/1';
+          this._updateMacTable();
+          this._updateArpTable();
+          await this._sleepSafe(400);
+          break;
 
-      case 'switch_learn':
-        this._macTable['AA:BB:CC:11:22:33'] = 'Fa0/1';
-        this._macTable['AA:BB:CC:44:55:66'] = 'Fa0/2';
-        this._updateMacTable();
-        await sleep(500);
-        break;
+        case 'switch_learn':
+          this._macTable['AA:BB:CC:11:22:33'] = 'Fa0/1';
+          this._macTable['AA:BB:CC:44:55:66'] = 'Fa0/2';
+          this._updateMacTable();
+          await this._sleepSafe(500);
+          break;
 
-      case 'routing_gw':
-        this._diagram.highlightNode('gw', 'active', 1000);
-        await sleep(500);
-        break;
+        case 'routing_gw':
+          this._highlightNodeSafe('gw', 'active', 1000);
+          await this._sleepSafe(500);
+          break;
 
-      case 'nat_outbound':
-        this._diagram.highlightNode('gw', 'active', 1500);
-        if (isPing) {
-          this._natTable['192.168.1.10:ICMP'] = '203.0.113.100:ICMP';
-        } else if (isFTP) {
-          const existing = Object.keys(this._natTable).find(k => k.includes('54321'));
-          if (!existing) {
-            this._natTable['192.168.1.10:54321'] = '203.0.113.100:40021';
+        case 'nat_outbound':
+          this._highlightNodeSafe('gw', 'active', 1500);
+          if (isPing) {
+            this._natTable['192.168.1.10:ICMP'] = '203.0.113.100:ICMP';
+          } else if (isFTP) {
+            const existing = Object.keys(this._natTable).find(k => k.includes('54321'));
+            if (!existing) {
+              this._natTable['192.168.1.10:54321'] = '203.0.113.100:40021';
+            } else {
+              this._natTable['192.168.1.10:54322'] = '203.0.113.100:40022';
+            }
           } else {
-            this._natTable['192.168.1.10:54322'] = '203.0.113.100:40022';
+            this._natTable['192.168.1.10:54321'] = '203.0.113.100:40001';
           }
-        } else {
-          this._natTable['192.168.1.10:54321'] = '203.0.113.100:40001';
-        }
-        this._updateNatTable();
-        await sleep(800);
-        break;
+          this._updateNatTable();
+          await this._sleepSafe(800);
+          break;
 
-      case 'firewall_check':
-        this._diagram.highlightNode('fw', 'active', 1200);
-        await sleep(600);
-        break;
+        case 'firewall_check':
+          this._highlightNodeSafe('fw', 'active', 1200);
+          await this._sleepSafe(600);
+          break;
 
-      case 'isp_routing':
-        this._diagram.highlightNode('isp1', 'active', 800);
-        await sleep(400);
-        break;
+        case 'isp_routing':
+          this._highlightNodeSafe('isp1', 'active', 800);
+          await this._sleepSafe(400);
+          break;
 
-      case 'isp_traverse':
-        await this._diagram.animatePacket(['gw', 'isp1', 'isp2', 'isp3', 'web'], { type: isPing ? 'icmp' : 'data', label: isPing ? 'ICMP Pkt' : 'IP Pkt', speed });
-        this._diagram.highlightNode('web', 'hop', 800);
-        this._arpCache['93.184.216.34'] = 'BB:CC:DD:EE:FF:00';
-        this._updateArpTable();
-        await sleep(400);
-        break;
+        case 'isp_traverse':
+          await this._animatePacketSafe(['gw', 'isp1', 'isp2', 'isp3', 'web'], { type: isPing ? 'icmp' : 'data', label: isPing ? 'ICMP Pkt' : 'IP Pkt', speed });
+          this._highlightNodeSafe('web', 'hop', 800);
+          this._arpCache['93.184.216.34'] = 'BB:CC:DD:EE:FF:00';
+          this._updateArpTable();
+          await this._sleepSafe(400);
+          break;
 
-      case 'arp_webserver':
-        await this._diagram.animatePacket(['isp3', 'web'], { type: 'broadcast', label: 'ARP WhoHas', speed: 350 });
-        await this._diagram.animatePacket(['web', 'isp3'], { type: 'data', label: 'ARP Reply', speed: 350 });
-        await sleep(400);
-        break;
+        case 'arp_webserver':
+          await this._animatePacketSafe(['isp3', 'web'], { type: 'broadcast', label: 'ARP WhoHas', speed: 350 });
+          await this._animatePacketSafe(['web', 'isp3'], { type: 'data', label: 'ARP Reply', speed: 350 });
+          await this._sleepSafe(400);
+          break;
 
-      case 'tcp_synack':
-        await this._diagram.animatePacket(['web', 'isp3', 'isp2', 'isp1', 'gw', 'switch1', 'client'], { type: 'data', label: isFTP ? 'SYN-ACK(21)' : 'SYN-ACK', speed: 320 });
-        this._diagram.highlightNode('client', 'hop', 800);
-        await sleep(400);
-        break;
+        case 'tcp_synack':
+          await this._animatePacketSafe(['web', 'isp3', 'isp2', 'isp1', 'gw', 'switch1', 'client'], { type: 'data', label: isFTP ? 'SYN-ACK(21)' : 'SYN-ACK', speed: 320 });
+          this._highlightNodeSafe('client', 'hop', 800);
+          await this._sleepSafe(400);
+          break;
 
-      case 'nat_inbound':
-        this._diagram.highlightNode('gw', 'active', 1000);
-        if (isPing) {
-          this._natTable['203.0.113.100:ICMP'] = '192.168.1.10:ICMP';
-        } else if (isFTP) {
-          this._natTable['203.0.113.100:40021'] = '192.168.1.10:54321';
-        } else {
-          this._natTable['203.0.113.100:40001'] = '192.168.1.10:54321';
-        }
-        this._updateNatTable();
-        await sleep(500);
-        break;
+        case 'nat_inbound':
+          this._highlightNodeSafe('gw', 'active', 1000);
+          if (isPing) {
+            this._natTable['203.0.113.100:ICMP'] = '192.168.1.10:ICMP';
+          } else if (isFTP) {
+            this._natTable['203.0.113.100:40021'] = '192.168.1.10:54321';
+          } else {
+            this._natTable['203.0.113.100:40001'] = '192.168.1.10:54321';
+          }
+          this._updateNatTable();
+          await this._sleepSafe(500);
+          break;
 
-      case 'tcp_established':
-        await this._diagram.animatePacket(['client', 'switch1', 'fw', 'gw', 'isp1', 'isp2', 'isp3', 'web'], { type: 'data', label: 'ACK', speed: 300 });
-        this._diagram.highlightNode('web', 'success', 800);
-        await sleep(500);
-        break;
+        case 'tcp_established':
+          await this._animatePacketSafe(['client', 'switch1', 'fw', 'gw', 'isp1', 'isp2', 'isp3', 'web'], { type: 'data', label: 'ACK', speed: 300 });
+          this._highlightNodeSafe('web', 'success', 800);
+          await this._sleepSafe(500);
+          break;
 
-      case 'http_request':
-        await this._diagram.animatePacket(['client', 'switch1', 'fw', 'gw', 'isp1', 'isp2', 'isp3', 'web'], { type: 'data', label: 'HTTP GET', speed: 280 });
-        await sleep(300);
-        break;
+        case 'http_request':
+          await this._animatePacketSafe(['client', 'switch1', 'fw', 'gw', 'isp1', 'isp2', 'isp3', 'web'], { type: 'data', label: 'HTTP GET', speed: 280 });
+          await this._sleepSafe(300);
+          break;
 
-      case 'http_response':
-        await this._diagram.animatePacket(['web', 'isp3', 'isp2', 'isp1', 'gw', 'fw', 'switch1', 'client'], { type: 'data', label: 'HTTP 200', speed: 280 });
-        this._diagram.highlightNode('client', 'success', 2000);
-        break;
+        case 'http_response':
+          await this._animatePacketSafe(['web', 'isp3', 'isp2', 'isp1', 'gw', 'fw', 'switch1', 'client'], { type: 'data', label: 'HTTP 200', speed: 280 });
+          this._highlightNodeSafe('client', 'success', 2000);
+          break;
 
-      case 'tcp_close':
-        await this._diagram.animatePacket(['client', 'web'], { type: 'data', label: 'FIN', speed: 400 });
-        await this._diagram.animatePacket(['web', 'client'], { type: 'data', label: 'FIN+ACK', speed: 400 });
-        await this._diagram.animatePacket(['client', 'web'], { type: 'data', label: 'ACK', speed: 400 });
-        this._natTable = {};
-        this._updateNatTable();
-        break;
+        case 'tcp_close':
+          await this._animatePacketSafe(['client', 'web'], { type: 'data', label: 'FIN', speed: 400 });
+          await this._animatePacketSafe(['web', 'client'], { type: 'data', label: 'FIN+ACK', speed: 400 });
+          await this._animatePacketSafe(['client', 'web'], { type: 'data', label: 'ACK', speed: 400 });
+          this._natTable = {};
+          this._updateNatTable();
+          break;
+      }
+    } catch (err) {
+      if (this._isAbortError(err)) return;
+      throw err;
     }
   }
 
@@ -1391,8 +1435,10 @@ class PacketJourneySimulator {
     this._running    = false;
     this._isDestroyed = true;
     if (this._diagram) this._diagram.destroy();
+    this._diagram = null;
     this.container = null;
   }
 }
 
 export default new PacketJourneySimulator();
+

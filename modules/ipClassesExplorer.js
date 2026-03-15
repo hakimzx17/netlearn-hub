@@ -63,6 +63,7 @@ class IpClassesExplorer {
     this.container = null;
     this._firstOctet = 192; // Default to a Class C value like 192
     this._lookupIp = '';
+    this._analyzerDebounce = null;
   }
 
   init(containerEl) {
@@ -457,6 +458,7 @@ class IpClassesExplorer {
   }
 
   _updateAnalyzer() {
+    if (!this.container) return;
     const input = this.container.querySelector('#ip-analyzer-input');
     const resultArea = this.container.querySelector('#analyzer-result-area');
     if (!input || !resultArea) return;
@@ -552,10 +554,9 @@ class IpClassesExplorer {
     // Analyzer input
     const analyzerInput = this.container.querySelector('#ip-analyzer-input');
     if (analyzerInput) {
-      let debounceTimer;
       analyzerInput.addEventListener('input', () => {
-        clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(() => this._updateAnalyzer(), 300);
+        if (this._analyzerDebounce) clearTimeout(this._analyzerDebounce);
+        this._analyzerDebounce = setTimeout(() => this._updateAnalyzer(), 300);
       });
       // Initial render check
       this._updateAnalyzer();
@@ -563,9 +564,22 @@ class IpClassesExplorer {
   }
 
   start() { }
-  reset() { this._firstOctet = 192; this._render(); }
+  reset() {
+    if (this._analyzerDebounce) {
+      clearTimeout(this._analyzerDebounce);
+      this._analyzerDebounce = null;
+    }
+    this._firstOctet = 192;
+    this._render();
+  }
   step() { }
-  destroy() { this.container = null; }
+  destroy() {
+    if (this._analyzerDebounce) {
+      clearTimeout(this._analyzerDebounce);
+      this._analyzerDebounce = null;
+    }
+    this.container = null;
+  }
 }
 
 export default new IpClassesExplorer();

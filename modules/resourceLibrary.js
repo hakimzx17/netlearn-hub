@@ -11,7 +11,7 @@
  */
 
 import { eventBus } from '../js/eventBus.js';
-import { escapeHtml, debounce } from '../utils/helperFunctions.js';
+import { escapeHtml } from '../utils/helperFunctions.js';
 
 const SECTIONS = [
   {
@@ -272,7 +272,7 @@ class ResourceLibrary {
     this._learnedCards = new Set();
     this._cliIndex = 0;
     this._cliInitTimer = null;
-    this._debouncedSearch = null;
+    this._searchDebounce = null;
   }
 
   init(containerEl) {
@@ -396,10 +396,11 @@ class ResourceLibrary {
 
     const searchInput = this.container.querySelector('#global-search');
     if (searchInput) {
-      if (!this._debouncedSearch) {
-        this._debouncedSearch = debounce((val) => this._handleSearch(val), 200);
-      }
-      searchInput.addEventListener('input', (e) => this._debouncedSearch(e.target.value));
+      searchInput.addEventListener('input', (e) => {
+        if (this._searchDebounce) clearTimeout(this._searchDebounce);
+        const value = e.target.value;
+        this._searchDebounce = setTimeout(() => this._handleSearch(value), 200);
+      });
     }
 
     const flashcardBtn = this.container.querySelector('#flashcard-toggle');
@@ -541,6 +542,7 @@ class ResourceLibrary {
   }
 
   _handleSearch(term) {
+    if (!this.container) return;
     const rawTerm = String(term || '');
     term = rawTerm.toLowerCase().trim();
     const resultsDiv = this.container.querySelector('#search-results');
@@ -804,12 +806,14 @@ class ResourceLibrary {
     this._flashcardMode = false; 
     this._unbindKeyboardNav();
     if (this._cliInitTimer) { clearTimeout(this._cliInitTimer); this._cliInitTimer = null; }
+    if (this._searchDebounce) { clearTimeout(this._searchDebounce); this._searchDebounce = null; }
     this._render(); 
   }
   step() {}
   destroy() { 
     this._unbindKeyboardNav();
     if (this._cliInitTimer) { clearTimeout(this._cliInitTimer); this._cliInitTimer = null; }
+    if (this._searchDebounce) { clearTimeout(this._searchDebounce); this._searchDebounce = null; }
     this.container = null; 
   }
 }

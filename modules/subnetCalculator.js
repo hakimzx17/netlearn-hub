@@ -24,7 +24,7 @@ import {
   calculateSubnet, getSubnetSteps, divideSubnet,
 } from '../utils/networkMath.js';
 
-import { escapeHtml, debounce } from '../utils/helperFunctions.js';
+import { escapeHtml } from '../utils/helperFunctions.js';
 
 // ── Preset examples for quick exploration ─────────────────────────────
 const PRESETS = [
@@ -42,6 +42,7 @@ class SubnetCalculator {
     this._ip        = '192.168.1.0';
     this._prefix    = 24;
     this._lastResult = null;
+    this._calcDebounce = null;
   }
 
   init(containerEl) {
@@ -144,10 +145,13 @@ class SubnetCalculator {
     });
 
     // Auto-calculate on any change (debounced 400ms)
-    const debouncedCalc = debounce(() => this._calculate(), 400);
-    ipInput?.addEventListener('input', debouncedCalc);
-    prefixInput?.addEventListener('input', debouncedCalc);
-    slider?.addEventListener('input', debouncedCalc);
+    const scheduleCalc = () => {
+      if (this._calcDebounce) clearTimeout(this._calcDebounce);
+      this._calcDebounce = setTimeout(() => this._calculate(), 400);
+    };
+    ipInput?.addEventListener('input', scheduleCalc);
+    prefixInput?.addEventListener('input', scheduleCalc);
+    slider?.addEventListener('input', scheduleCalc);
 
     calcBtn?.addEventListener('click', () => this._calculate());
 
@@ -171,6 +175,7 @@ class SubnetCalculator {
   }
 
   _calculate() {
+    if (!this.container) return;
     const ipInput     = this.container.querySelector('#sc-ip-input');
     const prefixInput = this.container.querySelector('#sc-prefix-input');
     const validation  = this.container.querySelector('#sc-validation');
@@ -614,9 +619,21 @@ class SubnetCalculator {
   }
 
   start()  {}
-  reset()  { this._render(); }
+  reset()  {
+    if (this._calcDebounce) {
+      clearTimeout(this._calcDebounce);
+      this._calcDebounce = null;
+    }
+    this._render();
+  }
   step()   {}
-  destroy() { this.container = null; }
+  destroy() {
+    if (this._calcDebounce) {
+      clearTimeout(this._calcDebounce);
+      this._calcDebounce = null;
+    }
+    this.container = null;
+  }
 }
 
 export default new SubnetCalculator();

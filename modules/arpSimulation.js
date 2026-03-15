@@ -1265,6 +1265,7 @@ export function createArpSimulator() {
   }
 
   function _animateTravel(fromDev, toDev, color, duration) {
+    if (!_packetLayer || !_root) return;
     const dot = svgNS('circle', {
       r: '8',
       fill: color,
