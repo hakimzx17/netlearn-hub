@@ -306,7 +306,7 @@ class SubnetPracticeEngine {
         <!-- Answer input -->
         <div style="display:flex; gap:0.5rem; align-items:flex-end; flex-wrap:wrap; margin-bottom:0.75rem;" id="sp-answer-row">
           <div style="flex:1; min-width:160px;">
-            <label style="font-size:var(--text-xs); color:var(--color-text-muted); display:block; margin-bottom:0.3rem;">
+            <label for="sp-answer-input" style="font-size:var(--text-xs); color:var(--color-text-muted); display:block; margin-bottom:0.3rem;">
               Your answer — ${FIELD_LABEL[prob.field]}:
             </label>
             <input type="text" id="sp-answer-input"
@@ -336,7 +336,7 @@ class SubnetPracticeEngine {
         ` : ''}
 
         <!-- Feedback (shown after answer) -->
-        <div id="sp-feedback"></div>
+        <div id="sp-feedback" role="status" aria-live="polite"></div>
       </div>
     `;
   }

@@ -74,6 +74,7 @@ class OsiTcpipVisualizer {
     this._playSpeed = 1;
     this._data = 'Hello World!';
     this._quizInstance = null;
+    this._autoTimer = null;
   }
 
   init(containerEl) {
@@ -571,6 +572,7 @@ class OsiTcpipVisualizer {
      ══════════════════════════════════════════ */
   _bindEvents() {
     this.container.querySelector('#btn-reset')?.addEventListener('click', () => {
+      this._clearAutoTimer();
       this._currentStep = 0;
       this._isPlaying = false;
       this._updatePlayButton();
@@ -579,6 +581,7 @@ class OsiTcpipVisualizer {
 
     this.container.querySelector('#btn-prev')?.addEventListener('click', () => {
       if (this._currentStep > 0) {
+        this._clearAutoTimer();
         this._currentStep--;
         this._isPlaying = false;
         this._updatePlayButton();
@@ -594,6 +597,7 @@ class OsiTcpipVisualizer {
     });
 
     this.container.querySelector('#btn-play')?.addEventListener('click', () => {
+      this._clearAutoTimer();
       this._isPlaying = true;
       this._updatePlayButton();
       this._autoPlay();
@@ -601,6 +605,7 @@ class OsiTcpipVisualizer {
 
     this.container.querySelector('#btn-pause')?.addEventListener('click', () => {
       this._isPlaying = false;
+      this._clearAutoTimer();
       this._updatePlayButton();
     });
 
@@ -616,6 +621,7 @@ class OsiTcpipVisualizer {
       this._phase = 'ENCAPSULATION';
       this._currentStep = 0;
       this._isPlaying = false;
+      this._clearAutoTimer();
       this._render();
     });
 
@@ -623,6 +629,7 @@ class OsiTcpipVisualizer {
       this._phase = 'DE-ENCAPSULATION';
       this._currentStep = 0;
       this._isPlaying = false;
+      this._clearAutoTimer();
       this._render();
     });
 
@@ -651,10 +658,18 @@ class OsiTcpipVisualizer {
       this._currentStep++;
       this._updateDisplay();
       const delay = 900 / this._playSpeed;
-      setTimeout(() => this._autoPlay(), delay);
+      this._clearAutoTimer();
+      this._autoTimer = setTimeout(() => this._autoPlay(), delay);
     } else {
       this._isPlaying = false;
       this._updatePlayButton();
+    }
+  }
+
+  _clearAutoTimer() {
+    if (this._autoTimer) {
+      clearTimeout(this._autoTimer);
+      this._autoTimer = null;
     }
   }
 
@@ -662,6 +677,7 @@ class OsiTcpipVisualizer {
   reset() { this._currentStep = 0; this._render(); }
   step() { }
   destroy() {
+    this._clearAutoTimer();
     if (this._quizInstance) {
       this._quizInstance.destroy();
       this._quizInstance = null;

@@ -149,7 +149,7 @@ class VlsmDesignEngine {
             <div class="text-mono text-xs text-muted" style="margin-bottom:0.75rem; text-transform:uppercase;">Base Network</div>
             <div style="display:flex; gap:0.5rem; align-items:flex-end; flex-wrap:wrap;">
               <div style="flex:1; min-width:160px;">
-                <label style="font-size:var(--text-xs); color:var(--color-text-muted); display:block; margin-bottom:0.3rem;">Network / Prefix (CIDR)</label>
+                <label for="vlsm-base-input" style="font-size:var(--text-xs); color:var(--color-text-muted); display:block; margin-bottom:0.3rem;">Network / Prefix (CIDR)</label>
                 <input type="text" id="vlsm-base-input"
                   value="${this._customBase}"
                   placeholder="e.g. 192.168.0.0/24"
@@ -242,12 +242,12 @@ class VlsmDesignEngine {
     return this._customNeeds.map((need, i) => `
       <div class="vlsm-needs-row" data-index="${i}"
         style="display:flex; gap:0.5rem; align-items:center; margin-bottom:0.4rem;">
-        <input type="text" class="vlsm-name-input" value="${escapeHtml(need.name)}"
+        <input type="text" class="vlsm-name-input" aria-label="Subnet name" value="${escapeHtml(need.name)}"
           placeholder="Subnet name"
           style="flex:2; padding:0.35rem 0.6rem; background:var(--color-bg-raised);
             border:1px solid var(--color-border); border-radius:var(--radius-xs);
             color:var(--color-text-primary); font-size:var(--text-xs); font-family:var(--font-mono); outline:none;" />
-        <input type="number" class="vlsm-hosts-input" value="${need.hosts}" min="1" max="65534"
+        <input type="number" class="vlsm-hosts-input" aria-label="Host count" value="${need.hosts}" min="1" max="65534"
           placeholder="hosts"
           style="width:80px; padding:0.35rem 0.5rem; background:var(--color-bg-raised);
             border:1px solid var(--color-border); border-radius:var(--radius-xs);

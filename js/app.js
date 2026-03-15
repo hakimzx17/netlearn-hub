@@ -151,9 +151,7 @@ function _renderBootstrapError(err) {
         <h1 style="font-size:1.5rem; color:#ff4444; margin-bottom:0.5rem">
           Application Failed to Start
         </h1>
-        <p style="color:#7fa8c9; margin-bottom:1.5rem; max-width:480px">
-          ${err.message || 'An unexpected error prevented the application from loading.'}
-        </p>
+        <p style="color:#7fa8c9; margin-bottom:1.5rem; max-width:480px"></p>
         <p style="font-size:0.75rem; color:#4a6d8a">
           Check the browser console for details, then refresh the page.
         </p>
@@ -168,6 +166,9 @@ function _renderBootstrapError(err) {
       </div>
     </div>
   `;
+  const msg = err?.message || 'An unexpected error prevented the application from loading.';
+  const msgEl = document.querySelector('body p');
+  if (msgEl) msgEl.textContent = msg;
 }
 
 // ── Entry Point ─────────────────────────────────────

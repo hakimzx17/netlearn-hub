@@ -16,7 +16,7 @@ import { eventBus } from './eventBus.js';
  * Keys that are automatically persisted to localStorage.
  * Simulation state and transient data are NOT persisted.
  */
-const PERSISTENT_KEYS = new Set(['userProgress', 'theme']);
+const PERSISTENT_KEYS = new Set(['userProgress', 'theme', 'examHistory', 'examConfig']);
 
 /**
  * Default initial state — all keys declared here.
@@ -29,6 +29,12 @@ const INITIAL_STATE = {
   // Exam session (null when not in exam)
   examSession: null,
   // { questions: [], currentIndex: 0, score: 0, timeLeft: 0, isComplete: false }
+
+  // Exam history (persisted)
+  examHistory: [],
+  // [{ date, score, totalQuestions, percent, timeTaken }]
+  // Exam config (persisted)
+  examConfig: null,
 
   // Active simulation state (cleared on route change)
   simState: null,

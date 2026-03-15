@@ -280,13 +280,35 @@ export function isContiguous(routes) {
  */
 export function getSubnetSteps(ipString, prefix) {
   const info = calculateSubnet(ipString, prefix);
+  const hostBits = 32 - prefix;
+  const isPointToPoint = prefix === 31;
+  const isHostRoute = prefix === 32;
+  const broadcastValue = prefix <= 30 ? info.broadcastAddress : 'N/A (no broadcast)';
+  const broadcastExplanation = prefix <= 30
+    ? `Flip all host bits to 1 in the network address. The last address in the subnet is ${info.broadcastAddress}.`
+    : (isPointToPoint
+      ? 'RFC 3021: /31 networks have no broadcast address; both addresses are usable.'
+      : 'A /32 is a host route with a single usable address; there is no broadcast.');
+  const firstHostExplanation = prefix <= 30
+    ? `Network address + 1 = ${info.firstHost}. This is the first IP assignable to a device.`
+    : (isPointToPoint
+      ? `In /31, the first usable host is the lower address: ${info.firstHost}.`
+      : `In /32, the single usable host is ${info.firstHost}.`);
+  const lastHostExplanation = prefix <= 30
+    ? `Broadcast address - 1 = ${info.lastHost}. This is the last IP assignable to a device.`
+    : (isPointToPoint
+      ? `In /31, the last usable host is the higher address: ${info.lastHost}.`
+      : 'In /32, first and last host are the same.');
+  const hostCountExplanation = prefix <= 30
+    ? `2^${hostBits} - 2 = ${info.usableHosts} usable addresses (subtracting network and broadcast).`
+    : `2^${hostBits} = ${info.usableHosts} usable addresses (no network/broadcast reservation).`;
 
   return [
     {
       step: 1,
       title:   'Identify the Prefix Length',
       value:   `/${prefix}`,
-      explanation: `The /${prefix} tells us that ${prefix} bits are used for the network portion and ${32 - prefix} bits are for hosts.`,
+      explanation: `The /${prefix} tells us that ${prefix} bits are used for the network portion and ${hostBits} bits are for hosts.`,
     },
     {
       step: 2,
@@ -303,26 +325,26 @@ export function getSubnetSteps(ipString, prefix) {
     {
       step: 4,
       title:   'Calculate the Broadcast Address',
-      value:   info.broadcastAddress,
-      explanation: `Flip all host bits to 1 in the network address. The last address in the subnet is ${info.broadcastAddress}.`,
+      value:   broadcastValue,
+      explanation: broadcastExplanation,
     },
     {
       step: 5,
       title:   'First Usable Host',
       value:   info.firstHost,
-      explanation: `Network address + 1 = ${info.firstHost}. This is the first IP assignable to a device.`,
+      explanation: firstHostExplanation,
     },
     {
       step: 6,
       title:   'Last Usable Host',
       value:   info.lastHost,
-      explanation: `Broadcast address - 1 = ${info.lastHost}. This is the last IP assignable to a device.`,
+      explanation: lastHostExplanation,
     },
     {
       step: 7,
       title:   'Usable Host Count',
       value:   info.usableHosts.toLocaleString(),
-      explanation: `2^${32 - prefix} - 2 = ${info.usableHosts} usable addresses (subtracting network and broadcast).`,
+      explanation: hostCountExplanation,
     },
   ];
 }

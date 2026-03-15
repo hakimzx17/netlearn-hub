@@ -178,7 +178,7 @@ class ExamModeEngine {
               Begin Exam →
             </button>
           </div>
-          <div id="exam-config-error" style="margin-top:0.5rem; font-size:var(--text-xs); color:var(--color-error); min-height:1rem;"></div>
+          <div id="exam-config-error" role="status" aria-live="polite" style="margin-top:0.5rem; font-size:var(--text-xs); color:var(--color-error); min-height:1rem;"></div>
         </div>
 
         <!-- Right: history + info -->

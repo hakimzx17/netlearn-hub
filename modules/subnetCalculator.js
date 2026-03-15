@@ -67,7 +67,7 @@ class SubnetCalculator {
       <div class="card" style="padding:1rem; margin-bottom:1.25rem;">
         <div style="display:flex; gap:0.6rem; flex-wrap:wrap; align-items:flex-end;">
           <div style="flex:2; min-width:160px;">
-            <label style="font-size:var(--text-xs); color:var(--color-text-muted); font-family:var(--font-mono); display:block; margin-bottom:0.3rem; text-transform:uppercase; letter-spacing:0.06em;">IP Address</label>
+            <label for="sc-ip-input" style="font-size:var(--text-xs); color:var(--color-text-muted); font-family:var(--font-mono); display:block; margin-bottom:0.3rem; text-transform:uppercase; letter-spacing:0.06em;">IP Address</label>
             <input type="text" id="sc-ip-input" value="${this._ip}"
               placeholder="e.g. 192.168.1.0"
               style="width:100%; padding:0.5rem 0.75rem;
@@ -78,7 +78,7 @@ class SubnetCalculator {
           </div>
           <div style="display:flex; align-items:center; padding-bottom:0.5rem; color:var(--color-text-muted); font-family:var(--font-mono); font-size:1.2rem;">/</div>
           <div style="flex:1; min-width:80px; max-width:120px;">
-            <label style="font-size:var(--text-xs); color:var(--color-text-muted); font-family:var(--font-mono); display:block; margin-bottom:0.3rem; text-transform:uppercase; letter-spacing:0.06em;">Prefix</label>
+            <label for="sc-prefix-input" style="font-size:var(--text-xs); color:var(--color-text-muted); font-family:var(--font-mono); display:block; margin-bottom:0.3rem; text-transform:uppercase; letter-spacing:0.06em;">Prefix</label>
             <input type="number" id="sc-prefix-input" value="${this._prefix}"
               min="0" max="32"
               style="width:100%; padding:0.5rem 0.75rem;
@@ -94,7 +94,7 @@ class SubnetCalculator {
         <!-- Prefix slider -->
         <div style="margin-top:0.75rem; display:flex; align-items:center; gap:0.75rem;">
           <span class="text-mono text-xs text-muted">/0</span>
-          <input type="range" id="sc-prefix-slider"
+          <input type="range" id="sc-prefix-slider" aria-label="Prefix length"
             min="0" max="32" value="${this._prefix}"
             style="flex:1; accent-color:var(--color-cyan);" />
           <span class="text-mono text-xs text-muted">/32</span>
@@ -113,7 +113,7 @@ class SubnetCalculator {
         </div>
 
         <!-- Validation message -->
-        <div id="sc-validation" style="margin-top:0.5rem; font-size:var(--text-xs); min-height:1rem;"></div>
+        <div id="sc-validation" role="status" aria-live="polite" style="margin-top:0.5rem; font-size:var(--text-xs); min-height:1rem;"></div>
       </div>
 
       <!-- Results area — empty until calculated -->
@@ -220,6 +220,17 @@ class SubnetCalculator {
     const maskOctets = prefixToBinaryMask(info.prefix).match(/.{1,8}/g) || [];
     const networkBits = info.prefix;
     const hostBits = 32 - info.prefix;
+    const isPointToPoint = info.prefix === 31;
+    const isHostRoute = info.prefix === 32;
+    const hostFormula = info.prefix <= 30
+      ? `2<sup>${hostBits}</sup> - 2 = ${info.usableHosts.toLocaleString()}`
+      : `2<sup>${hostBits}</sup> = ${info.usableHosts.toLocaleString()}`;
+    const hostFormulaNote = info.prefix <= 30
+      ? ''
+      : (isPointToPoint
+        ? '/31 has no broadcast; both addresses are usable.'
+        : '/32 is a single-host route; no broadcast address.');
+    const broadcastDisplay = info.prefix <= 30 ? info.broadcastAddress : 'N/A (no broadcast)';
 
     results.innerHTML = `
       <!-- Quick Reference Memory Card -->
@@ -230,7 +241,8 @@ class SubnetCalculator {
         <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:0.75rem;">
           <div style="background:var(--color-bg-raised); padding:0.6rem; border-radius:var(--radius-sm);">
             <div style="font-size:var(--text-xs); color:var(--color-text-muted); margin-bottom:0.2rem;">Hosts Formula</div>
-            <code style="font-family:var(--font-mono); font-size:var(--text-sm); color:var(--color-cyan);">2<sup>${hostBits}</sup> - 2 = ${info.usableHosts.toLocaleString()}</code>
+            <code style="font-family:var(--font-mono); font-size:var(--text-sm); color:var(--color-cyan);">${hostFormula}</code>
+            ${hostFormulaNote ? `<div style="margin-top:0.25rem; font-size:10px; color:var(--color-text-muted);">${hostFormulaNote}</div>` : ''}
           </div>
           <div style="background:var(--color-bg-raised); padding:0.6rem; border-radius:var(--radius-sm);">
             <div style="font-size:var(--text-xs); color:var(--color-text-muted); margin-bottom:0.2rem;">Subnet Mask</div>
@@ -347,9 +359,9 @@ class SubnetCalculator {
             ['Network Address',    info.networkAddress,                     'var(--color-text-primary)'],
             ['Subnet Mask',        info.subnetMask,                         'var(--color-text-primary)'],
             ['Wildcard Mask',      info.wildcardMask,                       'var(--color-text-muted)'],
-            ['Broadcast Address',  info.broadcastAddress,                   'var(--color-text-primary)'],
-            ['First Usable Host',  info.prefix <= 30 ? info.firstHost : 'N/A (special)',  'var(--color-success)'],
-            ['Last Usable Host',   info.prefix <= 30 ? info.lastHost  : 'N/A (special)',  'var(--color-success)'],
+            ['Broadcast Address',  broadcastDisplay,                        'var(--color-text-primary)'],
+            ['First Usable Host',  info.firstHost,                           'var(--color-success)'],
+            ['Last Usable Host',   info.lastHost,                            'var(--color-success)'],
           ].map(([k,v,c]) => `
             <div style="display:flex; justify-content:space-between; align-items:baseline; padding:0.35rem 0; border-bottom:1px solid var(--color-border);">
               <span style="font-size:var(--text-xs); color:var(--color-text-muted); font-family:var(--font-mono);">${k}</span>
@@ -445,7 +457,7 @@ class SubnetCalculator {
           </div>
           <p style="font-size:var(--text-xs); color:var(--color-text-muted); margin:0; line-height:1.6;">${s.explanation}</p>
           ${s.step === 3 ? binaryBreakdown.networkCalc : ''}
-          ${s.step === 4 ? binaryBreakdown.broadcastCalc : ''}
+          ${s.step === 4 && info.prefix <= 30 ? binaryBreakdown.broadcastCalc : ''}
         </div>
       </div>
     `).join('');

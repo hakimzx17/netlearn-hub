@@ -590,6 +590,7 @@ class PacketJourneySimulator {
     this._arpCache = {};
     this._currentScenario = 'http';
     this._packetHistory = [];
+    this._isDestroyed = false;
   }
 
   init(containerEl) {
@@ -601,6 +602,7 @@ class PacketJourneySimulator {
     this._macTable = {};
     this._arpCache = {};
     this._packetHistory = [];
+    this._isDestroyed = false;
     this._render();
   }
 
@@ -670,7 +672,7 @@ class PacketJourneySimulator {
             gap:0.5rem;
             overflow-x:auto;
           ">
-            <span class="text-mono text-xs" style="color:#666;">Packet:</span>
+            <span class="packet-data-label">Packet:</span>
             <div id="pj-packet-visual" style="
               flex:1;
               height:32px;
@@ -682,7 +684,7 @@ class PacketJourneySimulator {
               padding:0 0.5rem;
               gap:0.25rem;
             ">
-              <span class="text-mono text-xs" style="color:${scenario.color};" id="pj-packet-label">No packet in transit</span>
+              <span class="packet-data-value" style="color:${scenario.color};" id="pj-packet-label">No packet in transit</span>
             </div>
           </div>
 
@@ -706,7 +708,7 @@ class PacketJourneySimulator {
             <button class="btn btn-primary" id="pj-step-btn">▶ Step</button>
             <button class="btn btn-secondary" id="pj-auto-btn">⚡ Auto Play</button>
             <button class="btn btn-ghost" id="pj-reset-btn">↺ Reset</button>
-            <span class="text-mono text-xs text-muted" style="margin-left:auto;" id="pj-step-counter">
+            <span class="packet-data-label" style="margin-left:auto;" id="pj-step-counter">
               Step 0 / ${journeySteps.length}
             </span>
           </div>
@@ -718,7 +720,7 @@ class PacketJourneySimulator {
               <span id="pj-phase-badge" class="badge badge-cyan" style="font-size:var(--text-xs);">Start</span>
               <span id="pj-layer-badge" class="badge" style="font-size:var(--text-xs); background:#333;">Layer: -</span>
             </div>
-            <p class="text-secondary text-sm" style="line-height:1.8;" id="pj-step-log">
+            <p class="step-explanation" id="pj-step-log">
               Press <strong>Step</strong> or <strong>Auto Play</strong> to begin the packet journey.
               Watch how each network device processes the packet at different OSI layers.
             </p>
@@ -731,10 +733,10 @@ class PacketJourneySimulator {
               border-radius:0 4px 4px 0;
               display:none;
             ">
-              <div class="text-mono text-xs" style="color:${scenario.color}; margin-bottom:0.25rem;" id="pj-detail-header">
+              <div class="info-panel__title" style="margin-bottom:0.25rem;" id="pj-detail-header">
                 📋 Packet Header Details
               </div>
-              <div class="text-mono text-xs" style="color:#888; line-height:1.6;" id="pj-detail-content">
+              <div class="packet-data-value" style="line-height:1.6;" id="pj-detail-content">
                 --
               </div>
             </div>
@@ -744,7 +746,7 @@ class PacketJourneySimulator {
         <div>
           <!-- Packet Header Visualization -->
           <div class="card" style="margin-bottom:1rem;">
-            <div class="text-mono text-xs text-muted" style="margin-bottom:0.5rem; text-transform:uppercase; display:flex; align-items:center; gap:0.5rem;">
+            <div class="info-panel__title" style="display:flex; align-items:center; gap:0.5rem;">
               📦 Current Packet
               <span id="pj-packet-type" class="badge badge-purple" style="font-size:9px;">-</span>
             </div>
@@ -753,27 +755,27 @@ class PacketJourneySimulator {
               border:1px solid #21262d;
               border-radius:6px;
               padding:0.5rem;
-              font-family:monospace;
-              font-size:10px;
+              font-family:var(--font-mono);
+              font-size:var(--text-xs);
               line-height:1.5;
             ">
-              <div style="color:#8b949e; border-bottom:1px solid #21262d; padding-bottom:0.25rem; margin-bottom:0.25rem;">
+              <div class="packet-data-label" style="border-bottom:1px solid #21262d; padding-bottom:0.25rem; margin-bottom:0.25rem;">
                 L2: Ethernet Frame
               </div>
-              <div style="color:#58a6ff;">Dst: <span id="viz-dst-mac">------</span> | Src: <span id="viz-src-mac">------</span></div>
-              <div style="color:#8b949e; border-bottom:1px solid #21262d; padding:0.25rem 0; margin:0.25rem 0;">
+              <div><span class="packet-data-label">Dst:</span> <span class="packet-data-value" id="viz-dst-mac">------</span> | <span class="packet-data-label">Src:</span> <span class="packet-data-value" id="viz-src-mac">------</span></div>
+              <div class="packet-data-label" style="border-bottom:1px solid #21262d; padding:0.25rem 0; margin:0.25rem 0;">
                 L3: IP Packet
               </div>
-              <div style="color:#58a6ff;">Src: <span id="viz-src-ip">192.168.1.10</span> | Dst: <span id="viz-dst-ip">------</span></div>
-              <div style="color:#f0883e;">TTL: <span id="viz-ttl">64</span> | Proto: <span id="viz-proto">${scenario.protocol}</span></div>
-              <div style="color:#8b949e; border-bottom:1px solid #21262d; padding:0.25rem 0; margin:0.25rem 0;">
+              <div><span class="packet-data-label">Src:</span> <span class="packet-data-value" id="viz-src-ip">192.168.1.10</span> | <span class="packet-data-label">Dst:</span> <span class="packet-data-value" id="viz-dst-ip">------</span></div>
+              <div><span class="packet-data-label">TTL:</span> <span class="packet-data-value" id="viz-ttl">64</span> | <span class="packet-data-label">Proto:</span> <span class="packet-data-value" id="viz-proto">${scenario.protocol}</span></div>
+              <div class="packet-data-label" style="border-bottom:1px solid #21262d; padding:0.25rem 0; margin:0.25rem 0;">
                 L4: ${scenario.protocol === 'ICMP' ? 'ICMP' : 'TCP/UDP Segment'}
               </div>
               ${scenario.protocol !== 'ICMP' ? `
-              <div style="color:#58a6ff;">SrcPort: <span id="viz-src-port">------</span> | DstPort: <span id="viz-dst-port">${scenario.port || '---'}</span></div>
-              <div style="color:#f0883e;">Seq: <span id="viz-seq">0</span> | Flags: <span id="viz-flags">------</span></div>
+              <div><span class="packet-data-label">SrcPort:</span> <span class="packet-data-value" id="viz-src-port">------</span> | <span class="packet-data-label">DstPort:</span> <span class="packet-data-value" id="viz-dst-port">${scenario.port || '---'}</span></div>
+              <div><span class="packet-data-label">Seq:</span> <span class="packet-data-value" id="viz-seq">0</span> | <span class="packet-data-label">Flags:</span> <span class="packet-data-value" id="viz-flags">------</span></div>
               ` : `
-              <div style="color:#f0883e;">ICMP Type: <span id="viz-icmp-type">---</span> | Code: <span id="viz-icmp-code">---</span> | ID: <span id="viz-icmp-id">---</span></div>
+              <div><span class="packet-data-label">ICMP Type:</span> <span class="packet-data-value" id="viz-icmp-type">---</span> | <span class="packet-data-label">Code:</span> <span class="packet-data-value" id="viz-icmp-code">---</span> | <span class="packet-data-label">ID:</span> <span class="packet-data-value" id="viz-icmp-id">---</span></div>
               `}
             </div>
           </div>
@@ -783,7 +785,7 @@ class PacketJourneySimulator {
             <div class="info-panel__title" style="display:flex; align-items:center; gap:0.5rem;">
               ${this._currentScenario === 'ping' ? '🎯 ICMP Protocol' : this._currentScenario === 'ftp' ? '📂 FTP Protocol' : '🌐 HTTP Protocol'}
             </div>
-            <div style="font-size:var(--text-xs); color:var(--color-text-muted); line-height:1.6;">
+            <div class="step-explanation">
               ${this._currentScenario === 'ping' ? `
                 <div style="margin-bottom:0.4rem;"><strong style="color:#ff6600;">ICMP = Layer 3!</strong> No port numbers.</div>
                 <div style="margin-bottom:0.4rem;">Type 8 = Echo Request (ping)</div>
@@ -804,7 +806,7 @@ class PacketJourneySimulator {
           <!-- NAT Table -->
           <div class="info-panel">
             <div class="info-panel__title">🔄 NAT Translation Table</div>
-            <div style="font-family:var(--font-mono); font-size:var(--text-xs); margin-bottom:0.4rem; display:flex; justify-content:space-between; color:var(--color-text-muted); border-bottom:1px solid var(--color-border); padding-bottom:0.3rem;">
+            <div class="packet-data-label" style="margin-bottom:0.4rem; display:flex; justify-content:space-between; border-bottom:1px solid var(--color-border); padding-bottom:0.3rem;">
               <span>Inside Local</span><span>Outside Global</span>
             </div>
             <div id="pj-nat-table">
@@ -815,7 +817,7 @@ class PacketJourneySimulator {
           <!-- ARP Cache -->
           <div class="info-panel" style="margin-top:1rem;">
             <div class="info-panel__title">📡 ARP Cache</div>
-            <div style="font-family:var(--font-mono); font-size:var(--text-xs); color:var(--color-text-muted); margin-bottom:0.4rem; border-bottom:1px solid var(--color-border); padding-bottom:0.3rem;">
+            <div class="packet-data-label" style="margin-bottom:0.4rem; border-bottom:1px solid var(--color-border); padding-bottom:0.3rem;">
               IP Address → MAC Address
             </div>
             <div id="pj-arp-table">
@@ -826,7 +828,7 @@ class PacketJourneySimulator {
           <!-- Switch MAC Table -->
           <div class="info-panel" style="margin-top:1rem;">
             <div class="info-panel__title">🔀 Switch MAC Table</div>
-            <div style="font-family:var(--font-mono); font-size:var(--text-xs); color:var(--color-text-muted); margin-bottom:0.4rem; border-bottom:1px solid var(--color-border); padding-bottom:0.3rem;">
+            <div class="packet-data-label" style="margin-bottom:0.4rem; border-bottom:1px solid var(--color-border); padding-bottom:0.3rem;">
               Port → MAC Address
             </div>
             <div id="pj-mac-table">
@@ -880,6 +882,7 @@ class PacketJourneySimulator {
   async _runStep() {
     const journeySteps = getJourneySteps(this._currentScenario);
     if (this._step >= journeySteps.length || this._running) return;
+    if (this._isDestroyed || !this.container) return;
     this._running = true;
 
     const step  = journeySteps[this._step];
@@ -939,6 +942,7 @@ class PacketJourneySimulator {
     }
 
     await this._executeAction(step.action, step, scenario);
+    if (this._isDestroyed || !this.container) { this._running = false; return; }
     this._step++;
     this._running = false;
 
@@ -1092,6 +1096,7 @@ class PacketJourneySimulator {
     while (this._step < journeySteps.length && !this._isDestroyed) {
       await this._runStep();
       await sleep(1200); // SLOWER auto-play for better understanding
+      if (this._isDestroyed) return;
     }
   }
 

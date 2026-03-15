@@ -57,11 +57,13 @@ class TtlRouterSimulation {
     this._running    = false;
     this._currentTTL = 64;
     this._scenario   = 'normal';
+    this._isDestroyed = false;
   }
 
   init(containerEl) {
     this.container = containerEl;
     this._diagram  = createNetworkDiagram();
+    this._isDestroyed = false;
     this._render();
   }
 
@@ -187,6 +189,7 @@ class TtlRouterSimulation {
   async _simulate() {
     if (this._running) return;
     this._running = true;
+    const shouldStop = () => this._isDestroyed || !this._running || !this.container;
     this._clearHopLog();
 
     const sc = SCENARIOS.find(s => s.id === this._scenario);
@@ -203,25 +206,32 @@ class TtlRouterSimulation {
         this._setTTLDisplay(ttl);
         this._addHopEntry(`Probe TTL=${probe}`, 'src', ttl, false, true);
         await sleep(300);
+        if (shouldStop()) { this._running = false; return; }
         const hops = ['r1', 'r2', 'r3', 'dst'];
         for (let i = 0; i < hops.length; i++) {
+          if (shouldStop()) { this._running = false; return; }
           const hop = hops[i];
           await this._diagram.animatePacket([i === 0 ? 'src' : hops[i-1], hop], { type: 'data', speed: 450 });
+          if (shouldStop()) { this._running = false; return; }
           ttl--;
           if (ttl <= 0) {
             this._diagram.highlightNode(hop, 'error', 1200);
             this._addHopEntry(`ICMP Time Exceeded ← ${hop}`, hop, 0, true, false);
             this._setTTLDisplay(0);
             await this._diagram.animatePacket([hop, 'src'], { type: 'icmp', label: 'ICMP!', speed: 400 });
+            if (shouldStop()) { this._running = false; return; }
             await sleep(400);
+            if (shouldStop()) { this._running = false; return; }
             break;
           }
           this._setTTLDisplay(ttl);
           this._addHopEntry(`Hop ${i+1}: ${hop}`, hop, ttl, false, false);
           this._diagram.updateNodeLabel(hop, ttl.toString());
           await sleep(200);
+          if (shouldStop()) { this._running = false; return; }
         }
         await sleep(500);
+        if (shouldStop()) { this._running = false; return; }
         this._diagram.reset();
       }
       this._updatePanel('🗺 Path Mapped!', 'traceroute complete — each ICMP reply reveals a hop. The full path: Source → R1 → R2 → R3 → Destination.');
@@ -237,8 +247,10 @@ class TtlRouterSimulation {
       this._addHopEntry('Source sends packet', 'src', ttl, false, true);
 
       for (let i = 0; i < hops.length; i++) {
+        if (shouldStop()) { this._running = false; return; }
         const { from, to } = hops[i];
         await this._diagram.animatePacket([from, to], { type: 'data', label: `TTL=${ttl}`, speed: 500 });
+        if (shouldStop()) { this._running = false; return; }
         this._diagram.highlightNode(to, 'hop', 600);
 
         if (to !== 'dst') {
@@ -250,7 +262,9 @@ class TtlRouterSimulation {
             this._addHopEntry(`TTL=0 at ${to} — packet dropped!`, to, 0, true, false);
             this._updatePanel('⚠ TTL Expired!', `Packet dropped at ${to}. An ICMP Time Exceeded message is sent back to the source (10.0.0.1).`);
             await sleep(400);
+            if (shouldStop()) { this._running = false; return; }
             await this._diagram.animatePacket([to, 'src'], { type: 'icmp', label: 'ICMP TE', speed: 400 });
+            if (shouldStop()) { this._running = false; return; }
             this._diagram.highlightNode('src', 'error', 1000);
             this._addHopEntry('ICMP Time Exceeded → Source', 'src', 0, false, false);
             break;
@@ -271,6 +285,7 @@ class TtlRouterSimulation {
           });
         }
         await sleep(300);
+        if (shouldStop()) { this._running = false; return; }
       }
     }
 
@@ -332,6 +347,7 @@ class TtlRouterSimulation {
 
   destroy() {
     this._running = false;
+    this._isDestroyed = true;
     if (this._diagram) this._diagram.destroy();
     this.container = null;
   }

@@ -56,6 +56,8 @@ class Navbar {
     this._sidebarRoot = null;
     this._currentRoute = '/';
     this._routeUnsub = null;
+    this._progressUnsub = null;
+    this._sidebarUnsub = null;
   }
 
   init() {
@@ -92,7 +94,7 @@ class Navbar {
           <a href="#/exam" class="btn btn-primary" style="padding:0.3rem 1rem; font-size:0.75rem;">
             📝 Exam Mode
           </a>
-          <button class="navbar__toggle" id="sidebar-toggle" aria-label="Toggle sidebar">
+          <button class="navbar__toggle" id="sidebar-toggle" aria-label="Toggle sidebar" aria-controls="sidebar-root" aria-expanded="${stateManager.getState('sidebarOpen') ? 'true' : 'false'}">
             ☰
           </button>
         </div>
@@ -155,6 +157,12 @@ class Navbar {
       this._updateCompletionDots();
     });
 
+    // Update sidebar toggle ARIA state
+    this._sidebarUnsub = stateManager.subscribe('sidebarOpen', (isOpen) => {
+      const toggle = document.getElementById('sidebar-toggle');
+      if (toggle) toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    });
+
     // Set initial completion dots
     this._updateCompletionDots();
   }
@@ -171,6 +179,7 @@ class Navbar {
   destroy() {
     if (this._routeUnsub) this._routeUnsub();
     if (this._progressUnsub) this._progressUnsub();
+    if (this._sidebarUnsub) this._sidebarUnsub();
   }
 }
 

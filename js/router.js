@@ -244,13 +244,15 @@ class Router {
         <div style="text-align:center; padding: 2rem;">
           <p class="text-mono" style="font-size:4rem; color:var(--color-text-muted)">404</p>
           <h2 style="margin: 1rem 0 0.5rem;">Route not found</h2>
-          <p class="text-secondary">No module registered for <code>${routeKey}</code></p>
+          <p class="text-secondary">No module registered for <code></code></p>
           <a href="#/" class="btn btn-secondary" style="margin-top:1.5rem; display:inline-flex;">
             ← Return to Dashboard
           </a>
         </div>
       </div>
     `;
+    const codeEl = this._viewRoot.querySelector('code');
+    if (codeEl) codeEl.textContent = routeKey;
   }
 
   /**
@@ -263,13 +265,16 @@ class Router {
         <div style="text-align:center; padding: 2rem;">
           <p style="font-size:3rem; margin-bottom:1rem;">⚠️</p>
           <h2 style="margin-bottom:0.5rem; color:var(--color-error)">Module Load Error</h2>
-          <p class="text-secondary">${err.message || 'An unexpected error occurred.'}</p>
+          <p class="text-secondary"></p>
           <a href="#/" class="btn btn-ghost" style="margin-top:1.5rem; display:inline-flex;">
             ← Return to Dashboard
           </a>
         </div>
       </div>
     `;
+    const msg = err?.message || 'An unexpected error occurred.';
+    const msgEl = this._viewRoot.querySelector('p.text-secondary');
+    if (msgEl) msgEl.textContent = msg;
   }
 
   /**

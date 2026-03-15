@@ -61,11 +61,13 @@ class RoutingTableSimulator {
     this.container = null;
     this._diagram = null;
     this._running = false;
+    this._isDestroyed = false;
   }
 
   init(containerEl) {
     this.container = containerEl;
     this._diagram = createNetworkDiagram();
+    this._isDestroyed = false;
     this._render();
   }
 
@@ -111,6 +113,7 @@ class RoutingTableSimulator {
           <div class="card" style="margin-top:1rem; padding:1rem;">
             <div class="text-mono text-xs text-muted" style="margin-bottom:0.75rem; text-transform:uppercase;">Destination IP Lookup</div>
             <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+              <label class="sr-only" for="rt-dest-input">Destination IP</label>
               <input type="text" id="rt-dest-input" placeholder="Enter destination IP"
                 value="10.0.1.55"
                 style="flex:1; min-width:160px; padding:0.45rem 0.75rem;
@@ -135,7 +138,7 @@ class RoutingTableSimulator {
           <!-- LPM evaluation steps -->
           <div class="info-panel" style="margin-top:0.75rem;">
             <div class="info-panel__title" id="rt-result-title">🔍 Longest Prefix Match</div>
-            <div id="rt-result-log" class="text-secondary text-sm" style="line-height:1.8;">
+            <div id="rt-result-log" role="status" aria-live="polite" class="text-secondary text-sm" style="line-height:1.8;">
               Enter a destination IP and press <strong>Lookup</strong> to see which route wins
               and why. The most specific (longest) matching prefix always takes priority.
             </div>
@@ -242,6 +245,7 @@ class RoutingTableSimulator {
     }
 
     this._running = true;
+    const shouldStop = () => this._isDestroyed || !this._running || !this.container;
     this._diagram.reset();
     this._resetTableHighlights();
 
@@ -255,6 +259,7 @@ class RoutingTableSimulator {
     let bestPrefix = -1;
 
     for (let i = 0; i < ROUTING_TABLE.length; i++) {
+      if (shouldStop()) { this._running = false; return; }
       const route = ROUTING_TABLE[i];
       const rowEl = this.container.querySelector(`#rt-row-${i}`);
 
@@ -264,6 +269,7 @@ class RoutingTableSimulator {
         rowEl.style.outline = '1px solid rgba(255,184,0,0.5)';
       }
       await sleep(220);
+      if (shouldStop()) { this._running = false; return; }
 
       // Check if this route matches
       const matched = isSameSubnet(destIP, route.network, route.prefix);
@@ -310,7 +316,9 @@ class RoutingTableSimulator {
       // Animate packet toward the matched destination node
       this._diagram.highlightNode('router', 'active', 1000);
       await sleep(400);
+      if (shouldStop()) { this._running = false; return; }
       await this._diagram.animatePacket(['router', matchedRoute.nodeId], { type: 'data', label: destIP, speed: 500 });
+      if (shouldStop()) { this._running = false; return; }
       this._diagram.highlightNode(matchedRoute.nodeId, 'success', 2000);
 
       stateManager.mergeState('userProgress', {
@@ -346,6 +354,7 @@ class RoutingTableSimulator {
 
   destroy() {
     this._running = false;
+    this._isDestroyed = true;
     if (this._diagram) this._diagram.destroy();
     this.container = null;
   }

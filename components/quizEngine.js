@@ -38,6 +38,10 @@ class QuizEngine {
     this._answered        = false; // true after current question answered
     this._startTime       = null;
     this._config          = {};
+    // Event unsubscribe functions
+    this._answerSubUnsub    = null;
+    this._completeSubUnsub  = null;
+    this._questionSubUnsub  = null;
   }
 
   /**
@@ -59,6 +63,18 @@ class QuizEngine {
     this._container = config.containerEl;
     this._answers   = [];
     this._startTime = Date.now();
+
+    // Subscribe to events for external communication
+    this._answerSubUnsub = eventBus.on('quiz:answer-submitted', (data) => {
+      if (typeof config.onAnswer === 'function') {
+        config.onAnswer(data);
+      }
+    });
+    this._completeSubUnsub = eventBus.on('quiz:complete', (data) => {
+      if (typeof config.onComplete === 'function') {
+        config.onComplete(data);
+      }
+    });
 
     // Clone questions to avoid mutating source data
     let questions = [...config.questions];
@@ -175,8 +191,22 @@ class QuizEngine {
    * Render the entire quiz widget.
    */
   destroy() {
+    // Unsubscribe from eventBus to prevent memory leaks
+    if (this._answerSubUnsub) {
+      this._answerSubUnsub();
+      this._answerSubUnsub = null;
+    }
+    if (this._completeSubUnsub) {
+      this._completeSubUnsub();
+      this._completeSubUnsub = null;
+    }
+    if (this._questionSubUnsub) {
+      this._questionSubUnsub();
+      this._questionSubUnsub = null;
+    }
     this._container = null;
     this._questions = [];
+    this._answers = [];
   }
 
   // ─── Private ────────────────────────────────
@@ -195,7 +225,7 @@ class QuizEngine {
         <div class="quiz-question-card">
           ${this._renderQuestionHeader(q)}
           <p class="quiz-question-text">${escapeHtml(q.question)}</p>
-          <div class="quiz-options" id="quiz-options">
+          <div class="quiz-options" id="quiz-options" role="radiogroup" aria-label="Answer choices">
             ${optionMap.map((origIdx, dispIdx) =>
               this._renderOption(q.options[origIdx], dispIdx, answered, optionMap.indexOf(q.correctIndex))
             ).join('')}

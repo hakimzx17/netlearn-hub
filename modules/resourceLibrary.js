@@ -11,6 +11,7 @@
  */
 
 import { eventBus } from '../js/eventBus.js';
+import { escapeHtml, debounce } from '../utils/helperFunctions.js';
 
 const SECTIONS = [
   {
@@ -270,6 +271,8 @@ class ResourceLibrary {
     this._searchTerm = '';
     this._learnedCards = new Set();
     this._cliIndex = 0;
+    this._cliInitTimer = null;
+    this._debouncedSearch = null;
   }
 
   init(containerEl) {
@@ -295,6 +298,7 @@ class ResourceLibrary {
 
       <div style="margin-bottom: 2rem;">
         <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center;">
+          <label class="sr-only" for="global-search">Search resources</label>
           <input 
             type="text" 
             id="global-search" 
@@ -327,7 +331,7 @@ class ResourceLibrary {
             🎴 Flashcard Mode
           </button>
         </div>
-        <div id="search-results" style="display:none; margin-top: 1rem;"></div>
+        <div id="search-results" role="status" aria-live="polite" aria-atomic="true" style="display:none; margin-top: 1rem;"></div>
       </div>
 
       <div style="margin-bottom: 2.5rem;">
@@ -384,21 +388,36 @@ class ResourceLibrary {
           flashcardPanel.style.display = 'none';
           
           if (this._activeSection === 'cli') {
-            setTimeout(() => this._initCLI(), 100);
+            this._scheduleCliInit();
           }
         }
       });
     });
 
     const searchInput = this.container.querySelector('#global-search');
-    searchInput?.addEventListener('input', (e) => this._handleSearch(e.target.value));
+    if (searchInput) {
+      if (!this._debouncedSearch) {
+        this._debouncedSearch = debounce((val) => this._handleSearch(val), 200);
+      }
+      searchInput.addEventListener('input', (e) => this._debouncedSearch(e.target.value));
+    }
 
     const flashcardBtn = this.container.querySelector('#flashcard-toggle');
     flashcardBtn?.addEventListener('click', () => this._toggleFlashcardPanel());
 
-    if (this._activeSection === 'cli') {
-      setTimeout(() => this._initCLI(), 100);
+    if (this._activeSection === 'cli') this._scheduleCliInit();
+  }
+
+  _scheduleCliInit() {
+    if (this._cliInitTimer) {
+      clearTimeout(this._cliInitTimer);
+      this._cliInitTimer = null;
     }
+    this._cliInitTimer = setTimeout(() => {
+      this._cliInitTimer = null;
+      if (!this.container) return;
+      this._initCLI();
+    }, 100);
   }
 
   _initCLI() {
@@ -522,7 +541,8 @@ class ResourceLibrary {
   }
 
   _handleSearch(term) {
-    term = term.toLowerCase().trim();
+    const rawTerm = String(term || '');
+    term = rawTerm.toLowerCase().trim();
     const resultsDiv = this.container.querySelector('#search-results');
     
     if (term.length < 2) {
@@ -559,7 +579,7 @@ class ResourceLibrary {
     });
 
     if (results.length === 0) {
-      resultsDiv.innerHTML = `<div style="padding: 1rem; color: var(--color-text-muted);">No results found for "${term}"</div>`;
+      resultsDiv.innerHTML = `<div style="padding: 1rem; color: var(--color-text-muted);">No results found for "${escapeHtml(rawTerm.trim())}"</div>`;
     } else {
       resultsDiv.innerHTML = `
         <div style="background: var(--color-bg-panel); border-radius: var(--radius-md); padding: 1rem;">
@@ -568,7 +588,7 @@ class ResourceLibrary {
             ${results.slice(0,20).map(r => `
               <div style="padding: 0.5rem 0.75rem; background: var(--color-bg-dark); border-radius: var(--radius-sm); font-size: var(--text-sm);">
                 <span style="color: var(--color-cyan); font-weight: 700; font-size: var(--text-xs);">${r.type}</span>
-                <span style="color: var(--color-text-primary); margin-left: 0.5rem;">${r.text}</span>
+                <span style="color: var(--color-text-primary); margin-left: 0.5rem;">${escapeHtml(r.text)}</span>
               </div>
             `).join('')}
           </div>
@@ -783,11 +803,13 @@ class ResourceLibrary {
     this._activeSection = 'home'; 
     this._flashcardMode = false; 
     this._unbindKeyboardNav();
+    if (this._cliInitTimer) { clearTimeout(this._cliInitTimer); this._cliInitTimer = null; }
     this._render(); 
   }
   step() {}
   destroy() { 
     this._unbindKeyboardNav();
+    if (this._cliInitTimer) { clearTimeout(this._cliInitTimer); this._cliInitTimer = null; }
     this.container = null; 
   }
 }

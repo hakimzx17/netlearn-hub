@@ -320,15 +320,34 @@ body::before {
 }
 
 .info-panel__title {
-  font-family: var(--font-mono);
+  font-family: var(--font-display);
   font-size: var(--text-xs);
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: var(--color-cyan);
+  color: #94a3b8;
   margin-bottom: var(--space-4);
   display: flex;
   align-items: center;
   gap: var(--space-2);
+}
+
+.packet-data-label {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: #64748b;
+}
+
+.packet-data-value {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: #e2e8f0;
+}
+
+.step-explanation {
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.6;
+  color: #cbd5e1;
 }
 
 /* Control bar */

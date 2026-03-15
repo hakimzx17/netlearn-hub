@@ -244,7 +244,9 @@ class IpClassesExplorer {
         <h2 style="font-size: 1.1rem; margin-bottom: 1rem;">IPv4 Address Space Distribution</h2>
         <div class="ipc-space-bar">
           ${IP_CLASSES.map(c => `
-            <div class="ipc-space-segment preset-btn" data-octet="${this._getBaseOctet(c.cls)}" title="Class ${c.cls}: ${c.spacePct}%" style="width: ${c.spacePct}%; background: ${c.color}; color: ${c.cls === 'B' || c.cls === 'E' ? '#fff' : '#000'};">
+            <div class="ipc-space-segment preset-btn" role="button" tabindex="0" aria-label="Select Class ${c.cls}"
+              data-octet="${this._getBaseOctet(c.cls)}" title="Class ${c.cls}: ${c.spacePct}%"
+              style="width: ${c.spacePct}%; background: ${c.color}; color: ${c.cls === 'B' || c.cls === 'E' ? '#fff' : '#000'};">
               ${c.spacePct > 10 ? `Class ${c.cls}` : c.cls}
             </div>
           `).join('')}
@@ -264,12 +266,13 @@ class IpClassesExplorer {
           <h2 style="font-size: 1.1rem; margin-bottom: 0.2rem;">Smart IP Analyzer</h2>
           <p style="font-size: 0.8rem; color:var(--color-text-muted); margin:0;">Type any IPv4 address to instantly decode its properties.</p>
           
-          <div class="ipc-analyzer">
-            <label>🔎</label>
-            <input type="text" id="ip-analyzer-input" placeholder="e.g. 192.168.1.10" value="192.168.1.10" autocomplete="off" spellcheck="false" />
-          </div>
+            <div class="ipc-analyzer">
+              <label class="sr-only" for="ip-analyzer-input">IP address</label>
+              <label aria-hidden="true">🔎</label>
+              <input type="text" id="ip-analyzer-input" placeholder="e.g. 192.168.1.10" value="192.168.1.10" autocomplete="off" spellcheck="false" />
+            </div>
           
-          <div id="analyzer-result-area">
+          <div id="analyzer-result-area" role="status" aria-live="polite">
              <!-- Rendered by JS -->
           </div>
         </div>
@@ -531,11 +534,18 @@ class IpClassesExplorer {
   _bindEvents() {
     // Top preset buttons
     this.container.querySelectorAll('.preset-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
+      const activate = () => {
         this._firstOctet = parseInt(btn.dataset.octet);
         this._updateSandbox();
         // Scroll slightly to top if needed
         window.scrollTo({ top: 0, behavior: 'smooth' });
+      };
+      btn.addEventListener('click', activate);
+      btn.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          activate();
+        }
       });
     });
 

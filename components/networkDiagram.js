@@ -388,25 +388,31 @@ class NetworkDiagram {
     group.setAttribute('style', `color: ${DEVICE_COLOR_VAR[node.type] || 'var(--color-text-secondary)'}; cursor:pointer;`);
 
     const iconSvg = DEVICE_ICONS[node.type] || DEVICE_ICONS.pc;
+    const labelY = node.y + 44;
+    const macY = node.y + 58;
+    const ipY = node.y + 70;
+    
     group.innerHTML = `
       ${iconSvg}
-      <text class="node-label" text-anchor="middle" y="50"
+      <text class="node-label" text-anchor="middle" y="${labelY}"
         fill="${DEVICE_COLOR_VAR[node.type]}"
-        font-size="16" font-family="JetBrains Mono, monospace"
-        font-weight="700">
+        font-size="12" font-family="Nunito, sans-serif"
+        font-weight="600">
         ${node.label}
       </text>
       ${node.mac ? `
-        <text class="node-sublabel" text-anchor="middle" y="70"
+        <text class="node-sublabel" text-anchor="middle" y="${macY}"
           fill="#4ECDC4"
-          font-size="10" font-family="JetBrains Mono, monospace">
+          font-size="10" font-family="Nunito, sans-serif"
+          font-weight="400">
           ${node.mac}
         </text>
       ` : ''}
       ${node.ip ? `
-        <text class="node-sublabel" text-anchor="middle" y="${node.mac ? 84 : 70}"
+        <text class="node-sublabel" text-anchor="middle" y="${ipY}"
           fill="var(--color-text-muted)"
-          font-size="12" font-family="JetBrains Mono, monospace">
+          font-size="10" font-family="Nunito, sans-serif"
+          font-weight="400">
           ${node.ip}
         </text>
       ` : ''}
