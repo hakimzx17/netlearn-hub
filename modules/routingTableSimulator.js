@@ -14,7 +14,7 @@
  */
 
 import { createNetworkDiagram } from '../components/networkDiagram.js';
-import { isValidIP, isSameSubnet, ipToLong, longToIp } from '../utils/ipUtils.js';
+import { isValidIP, isSameSubnet, ipToInt, intToIP } from '../utils/ipUtils.js';
 import { stateManager } from '../js/stateManager.js';
 import { sleep, showToast, escapeHtml } from '../utils/helperFunctions.js';
 
