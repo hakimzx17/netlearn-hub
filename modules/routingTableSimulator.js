@@ -31,7 +31,7 @@ const TOPOLOGY = {
     { id: 'r1', type: 'router', label: 'R1', x: 420, y: 190 },
     { id: 'r2', type: 'router', label: 'R2', x: 620, y: 100, ip: '172.16.0.1' },
     { id: 'isp', type: 'cloud', label: 'Internet', x: 620, y: 280, ip: '203.0.113.1' },
-    { id: 'server', type: 'server', label: 'Server', x: 780, y: 100, ip: '192.168.1.10' },
+    { id: 'server', type: 'server', label: 'Server', x: 720, y: 100, ip: '192.168.1.10' },
   ],
   links: [
     { from: 'pca', to: 'sw1', label: 'Fa0/1' },
