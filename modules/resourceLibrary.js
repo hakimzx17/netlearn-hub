@@ -13,7 +13,8 @@
 import { eventBus } from '../js/eventBus.js';
 import { escapeHtml } from '../utils/helperFunctions.js';
 import { flashcardEngine } from '../js/flashcardEngine.js';
-import { ALL_CCNA_DECKS, NETWORK_FUNDAMENTALS_DECK, NETWORK_ACCESS_DECK, IP_CONNECTIVITY_DECK, IP_SERVICES_DECK, SECURITY_FUNDAMENTALS_DECK, AUTOMATION_DECK, PROTOCOLS_DECK, PORTS_DECK } from '../data/ccnaFlashcards.js';
+import { ensureCcnaFlashcardDecks } from '../data/ccnaFlashcards.js';
+import { progressEngine } from '../js/progressEngine.js';
 import { renderTokenIcon } from '../utils/tokenIcons.js';
 
 const SECTIONS = [
@@ -53,6 +54,8 @@ const SECTIONS = [
     content: () => _renderGlossary(),
   },
 ];
+
+const FLASHCARD_LAUNCH_CONTEXT_KEY = 'netlearn:flashcardLaunchContext';
 
 const PORT_CATEGORIES = {
   critical: {
@@ -336,50 +339,40 @@ class ResourceLibrary {
     this._cliIndex = 0;
     this._cliInitTimer = null;
     this._searchDebounce = null;
+    this._flashcardOpenTimer = null;
     this._flashcardNotice = null;
+    this._flashcardLaunchContext = null;
     
-    // Initialize CCNA decks on first load
-    this._initializeCCNADecks();
+    // CCNA decks are synchronized during route init so module import stays side-effect light.
   }
   
   /**
    * Initialize CCNA flashcard decks if they don't exist
    */
   _initializeCCNADecks() {
-    const existingDecks = flashcardEngine.getAllDecks();
-    const existingIds = existingDecks.map(d => d.id);
-    
-    // Import CCNA decks if not already present
-    ALL_CCNA_DECKS.forEach(ccnaDeck => {
-      if (!existingIds.includes(ccnaDeck.id)) {
-        const newDeck = flashcardEngine.createDeck({
-          id: ccnaDeck.id,
-          name: ccnaDeck.name,
-          description: ccnaDeck.description,
-          category: ccnaDeck.category,
-          tags: ccnaDeck.tags
-        });
-        
-        // Add all cards
-        ccnaDeck.cards.forEach(card => {
-          flashcardEngine.createCard(newDeck.id, card);
-        });
-      }
-    });
+    ensureCcnaFlashcardDecks(flashcardEngine);
   }
 
   init(containerEl) {
     this.container = containerEl;
+    this._initializeCCNADecks();
+    this._flashcardLaunchContext = this._consumeFlashcardLaunchContext();
     this._render();
     
-    // Auto-open flashcards when launched from dashboard CTA or /flashcards route.
+    // Auto-open flashcards when launched from dashboard CTA, lesson/domain context, or /flashcards route.
     const openFromDashboard = sessionStorage.getItem('openFlashcards') === 'true';
     const openFromRoute = window.location.hash === '#/flashcards';
-    if (openFromDashboard || openFromRoute) {
+    const hasActiveSession = flashcardEngine.hasActiveSession();
+    if (openFromDashboard || openFromRoute || this._flashcardLaunchContext || hasActiveSession) {
       if (openFromDashboard) sessionStorage.removeItem('openFlashcards');
       // Small delay to ensure DOM is ready
-      setTimeout(() => {
-        if (!this._flashcardMode) this._toggleFlashcardPanel();
+      this._flashcardOpenTimer = setTimeout(() => {
+        this._flashcardOpenTimer = null;
+        if (this._flashcardLaunchContext) {
+          this._openFlashcardsFromContext(this._flashcardLaunchContext);
+        } else if (!this._flashcardMode) {
+          this._toggleFlashcardPanel();
+        }
       }, 100);
     }
   }
@@ -745,6 +738,80 @@ class ResourceLibrary {
   // NEW FLASHCARD MODE METHODS
   // ═══════════════════════════════════════════
 
+  _consumeFlashcardLaunchContext() {
+    try {
+      const raw = sessionStorage.getItem(FLASHCARD_LAUNCH_CONTEXT_KEY);
+      if (!raw) return null;
+      sessionStorage.removeItem(FLASHCARD_LAUNCH_CONTEXT_KEY);
+      return JSON.parse(raw);
+    } catch (err) {
+      console.warn('[ResourceLibrary] Could not parse flashcard launch context:', err);
+      sessionStorage.removeItem(FLASHCARD_LAUNCH_CONTEXT_KEY);
+      return null;
+    }
+  }
+
+  _openFlashcardsFromContext(context) {
+    this._flashcardMode = true;
+    this._flashcardView = 'study';
+    this._showFlashcardModal({ skipResume: true });
+    this._startScopedStudyFromContext(context);
+  }
+
+  _buildFlashcardScope(context = {}) {
+    return {
+      source: context.source || 'contextual-launch',
+      domainId: context.domainId || null,
+      domainTitle: context.domainTitle || context.pathTitle || null,
+      topicId: context.topicId || null,
+      topicTitle: context.topicTitle || null,
+      returnRoute: context.returnRoute || '#/resources',
+      tags: [
+        context.domainId ? `domain:${context.domainId}` : null,
+        context.topicId ? `topic:${context.topicId}` : null,
+      ].filter(Boolean),
+    };
+  }
+
+  _startScopedStudyFromContext(context = {}) {
+    const scope = this._buildFlashcardScope(context);
+    const sessionOptions = {
+      includeNew: true,
+      includeDue: true,
+      fallbackToAll: true,
+      limit: context.limit || 20,
+    };
+    let session = flashcardEngine.startScopedSession(scope, sessionOptions);
+    let effectiveScope = scope;
+
+    if (session.totalCards === 0 && scope.topicId && scope.domainId) {
+      effectiveScope = { ...scope, topicId: null, topicTitle: null, tags: [`domain:${scope.domainId}`] };
+      session = flashcardEngine.startScopedSession(effectiveScope, sessionOptions);
+    }
+
+    const modal = document.getElementById('fc-global-modal');
+    const contentContainer = modal?.querySelector('#fc-deck-selection-content');
+
+    if (session.totalCards === 0) {
+      this._currentSession = null;
+      this._currentDeckId = null;
+      this._flashcardView = 'decks';
+      this._setFlashcardNotice('warning', 'No flashcards are tagged for this lesson yet. Choose a full deck to keep reviewing.');
+      return;
+    }
+
+    this._currentSession = session;
+    this._currentDeckId = session.deck.id;
+    this._flashcardLaunchContext = effectiveScope;
+    this._isFlipped = false;
+    this._clearFlashcardNotice();
+
+    if (contentContainer) {
+      contentContainer.innerHTML = this._getStudySessionHTML();
+      this._bindStudySessionModalEvents(modal);
+    }
+  }
+
   _toggleFlashcardPanel() {
     if (this._flashcardMode) {
       this._closeFlashcardMode();
@@ -769,13 +836,22 @@ class ResourceLibrary {
     }
     
     this._flashcardMode = false;
+    this._currentDeckId = null;
+    this._flashcardLaunchContext = null;
     this._flashcardNotice = null;
     this._unbindKeyboardNav();
   }
 
-  _showFlashcardModal() {
+  _showFlashcardModal({ skipResume = false } = {}) {
     const existingModal = document.getElementById('fc-global-modal');
     if (existingModal) existingModal.remove();
+
+    const resumableSession = !skipResume ? flashcardEngine.resumeSession() : null;
+    if (resumableSession) {
+      this._currentSession = resumableSession;
+      this._currentDeckId = resumableSession.deck.id;
+      this._flashcardView = 'study';
+    }
 
     const modal = document.createElement('div');
     modal.id = 'fc-global-modal';
@@ -783,13 +859,17 @@ class ResourceLibrary {
     modal.innerHTML = `
       <div class="fc-modal-container fc-modal-container--command">
         <div id="fc-deck-selection-content">
-          ${this._getDeckSelectionHTML()}
+          ${resumableSession ? this._getStudySessionHTML() : this._getDeckSelectionHTML()}
         </div>
       </div>
     `;
 
     document.body.appendChild(modal);
-    this._bindDeckSelectionModalEvents(modal);
+    if (resumableSession) {
+      this._bindStudySessionModalEvents(modal);
+    } else {
+      this._bindDeckSelectionModalEvents(modal);
+    }
     this._bindKeyboardNav('flashcards');
   }
 
@@ -1047,7 +1127,7 @@ class ResourceLibrary {
     }
 
     this._currentDeckId = deckId;
-    this._currentSession = flashcardEngine.startSession(deckId, { includeNew: true, includeDue: true });
+    this._currentSession = flashcardEngine.startSession(deckId, { includeNew: true, includeDue: true, fallbackToAll: true });
     this._isFlipped = false;
     this._clearFlashcardNotice();
     
@@ -1244,7 +1324,7 @@ class ResourceLibrary {
 
   _getSessionStatsHTML() {
     const stats = flashcardEngine.getSessionStats();
-    const deck = flashcardEngine.getDeck(this._currentDeckId);
+    const deck = this._currentSession?.deck || flashcardEngine.resumeSession()?.deck || flashcardEngine.getDeck(this._currentDeckId);
 
     return `
       <div class="ops-flash">
@@ -1416,7 +1496,19 @@ class ResourceLibrary {
     const result = flashcardEngine.rateCurrentCard(rating);
     
     if (result) {
+      if (result.rating === 0) {
+        progressEngine.recordFlashcardReview({
+          rating: result.rating,
+          cardId: result.card.id,
+          deckId: result.card.deckId || this._currentDeckId,
+          domainId: result.card.domainId || this._flashcardLaunchContext?.domainId || null,
+          topicIds: Array.isArray(result.card.topicIds) ? result.card.topicIds : [],
+          front: result.card.front,
+        });
+      }
+
       if (result.sessionComplete) {
+        this._currentSession = flashcardEngine.resumeSession() || this._currentSession;
         const contentContainer = modal.querySelector('#fc-deck-selection-content');
         if (contentContainer) {
           contentContainer.innerHTML = this._getSessionStatsHTML();
@@ -1424,6 +1516,7 @@ class ResourceLibrary {
         }
       } else {
         this._isFlipped = false;
+        this._currentSession = flashcardEngine.resumeSession() || this._currentSession;
         const contentContainer = modal.querySelector('#fc-deck-selection-content');
         if (contentContainer) {
           contentContainer.innerHTML = this._getStudySessionHTML();
@@ -1704,6 +1797,7 @@ class ResourceLibrary {
     this._unbindKeyboardNav();
     if (this._cliInitTimer) { clearTimeout(this._cliInitTimer); this._cliInitTimer = null; }
     if (this._searchDebounce) { clearTimeout(this._searchDebounce); this._searchDebounce = null; }
+    if (this._flashcardOpenTimer) { clearTimeout(this._flashcardOpenTimer); this._flashcardOpenTimer = null; }
     this._render(); 
   }
   step() {}
@@ -1711,6 +1805,11 @@ class ResourceLibrary {
     this._unbindKeyboardNav();
     if (this._cliInitTimer) { clearTimeout(this._cliInitTimer); this._cliInitTimer = null; }
     if (this._searchDebounce) { clearTimeout(this._searchDebounce); this._searchDebounce = null; }
+    if (this._flashcardOpenTimer) { clearTimeout(this._flashcardOpenTimer); this._flashcardOpenTimer = null; }
+    const existingModal = document.getElementById('fc-global-modal');
+    if (existingModal) existingModal.remove();
+    this._flashcardMode = false;
+    this._currentSession = null;
     this.container = null; 
   }
 }

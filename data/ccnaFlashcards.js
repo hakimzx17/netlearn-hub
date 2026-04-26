@@ -306,4 +306,240 @@ export const ALL_CCNA_DECKS = [
   PORTS_DECK
 ];
 
+export const FLASHCARD_DECK_DOMAIN_MAP = {
+  'network-fundamentals': 'fundamentals',
+  'network-access': 'network-access',
+  'ip-connectivity': 'ip-connectivity',
+  'ip-services': 'ip-services',
+  'security-fundamentals': 'security-fundamentals',
+  'automation-programmability': 'automation-programmability',
+  'protocols-reference': 'fundamentals',
+  'ports-reference': 'fundamentals',
+};
+
+export const FLASHCARD_DOMAIN_DECK_MAP = {
+  fundamentals: ['network-fundamentals', 'protocols-reference', 'ports-reference'],
+  'network-access': ['network-access'],
+  'ip-connectivity': ['ip-connectivity'],
+  'ip-services': ['ip-services'],
+  'security-fundamentals': ['security-fundamentals'],
+  'automation-programmability': ['automation-programmability'],
+};
+
+export const FLASHCARD_TAG_TOPIC_MAP = {
+  // Domain 1 — Network Fundamentals
+  osi: ['fundamentals-1-1-osi-tcp-ip-models'],
+  model: ['fundamentals-1-1-osi-tcp-ip-models'],
+  pdu: ['fundamentals-1-1-osi-tcp-ip-models'],
+  comparison: ['fundamentals-1-1-osi-tcp-ip-models'],
+  'tcp-ip': ['fundamentals-1-1-osi-tcp-ip-models', 'fundamentals-1-11-tcp-vs-udp'],
+  ethernet: ['fundamentals-1-2-ethernet-lan-standards', 'fundamentals-1-4-csma-cd-ethernet-frames'],
+  standards: ['fundamentals-1-2-ethernet-lan-standards'],
+  cabling: ['fundamentals-1-2-ethernet-lan-standards'],
+  duplex: ['fundamentals-1-4-csma-cd-ethernet-frames'],
+  ipv4: ['fundamentals-1-7-ipv4-addressing'],
+  private: ['fundamentals-1-7-ipv4-addressing'],
+  addressing: ['fundamentals-1-7-ipv4-addressing', 'fundamentals-1-9-ipv6-fundamentals'],
+  subnetting: ['fundamentals-1-8-ipv4-subnetting'],
+  calculation: ['fundamentals-1-8-ipv4-subnetting'],
+  vlsm: ['fundamentals-1-8-ipv4-subnetting'],
+  cidr: ['fundamentals-1-8-ipv4-subnetting'],
+  ipv6: ['fundamentals-1-9-ipv6-fundamentals', 'fundamentals-1-10-ipv6-addressing-eui-64'],
+  format: ['fundamentals-1-9-ipv6-fundamentals'],
+  types: ['fundamentals-1-9-ipv6-fundamentals'],
+  'eui-64': ['fundamentals-1-10-ipv6-addressing-eui-64'],
+  tcp: ['fundamentals-1-11-tcp-vs-udp'],
+  udp: ['fundamentals-1-11-tcp-vs-udp'],
+  transport: ['fundamentals-1-11-tcp-vs-udp'],
+  handshake: ['fundamentals-1-11-tcp-vs-udp'],
+  ports: ['fundamentals-1-12-ip-ports-applications'],
+
+  // Domain 2 — Network Access
+  'mac-table': ['network-access-2-1-switch-operation-mac-table'],
+  switching: ['network-access-2-1-switch-operation-mac-table'],
+  vlan: ['network-access-2-4-vlans', 'network-access-2-5-vlan-trunking-802-1q'],
+  trunking: ['network-access-2-5-vlan-trunking-802-1q'],
+  '802.1q': ['network-access-2-5-vlan-trunking-802-1q'],
+  stp: ['network-access-2-8-stp-concepts', 'network-access-2-9-rstp-per-vlan-stp'],
+  etherchannel: ['network-access-2-10-etherchannel'],
+  lacp: ['network-access-2-10-etherchannel'],
+  wireless: ['network-access-2-12-wireless-lan-fundamentals', 'network-access-2-14-wireless-lan-security'],
+
+  // Domain 3 — IP Connectivity
+  routing: ['ip-connectivity-3-1-router-operation', 'ip-connectivity-3-2-routing-table-fundamentals'],
+  table: ['ip-connectivity-3-2-routing-table-fundamentals'],
+  ad: ['ip-connectivity-3-3-administrative-distance'],
+  metric: ['ip-connectivity-3-3-administrative-distance'],
+  static: ['ip-connectivity-3-4-ipv4-static-routing'],
+  floating: ['ip-connectivity-3-4-ipv4-static-routing'],
+  ospf: ['ip-connectivity-3-6-ospf-concepts', 'ip-connectivity-3-7-ospf-configuration', 'ip-connectivity-3-8-ospf-network-types-neighbors'],
+  adjacency: ['ip-connectivity-3-8-ospf-network-types-neighbors'],
+  areas: ['ip-connectivity-3-9-multi-area-ospf'],
+  hsrp: ['ip-connectivity-3-12-first-hop-redundancy-hsrp'],
+  redundancy: ['ip-connectivity-3-12-first-hop-redundancy-hsrp'],
+
+  // Domain 4 — IP Services
+  dhcp: ['ip-services-4-6-dhcp'],
+  dns: ['ip-services-4-5-dns'],
+  ntp: ['ip-services-4-4-ntp'],
+  snmp: ['ip-services-4-8-snmp'],
+  nat: ['ip-services-4-1-nat-concepts-terminology', 'ip-services-4-2-static-nat', 'ip-services-4-3-dynamic-nat-pat'],
+  pat: ['ip-services-4-3-dynamic-nat-pat'],
+  syslog: ['ip-services-4-9-syslog'],
+  qos: ['ip-services-4-10-qos-fundamentals'],
+  ftp: ['ip-services-4-11-tftp-ftp'],
+  ssh: ['ip-services-4-7-ssh-remote-access'],
+
+  // Domain 5 — Security Fundamentals
+  security: ['security-fundamentals-5-1-security-concepts'],
+  cia: ['security-fundamentals-5-1-security-concepts'],
+  attacks: ['security-fundamentals-5-2-attack-types'],
+  acl: ['security-fundamentals-5-6-acl-fundamentals', 'security-fundamentals-5-7-advanced-acls'],
+  vpn: ['security-fundamentals-5-12-vpns-site-to-site', 'security-fundamentals-5-13-vpns-remote-access'],
+  ipsec: ['security-fundamentals-5-12-vpns-site-to-site'],
+  device: ['security-fundamentals-5-4-password-security-aaa'],
+  aaa: ['security-fundamentals-5-4-password-security-aaa'],
+  layer2: ['security-fundamentals-5-9-port-security', 'security-fundamentals-5-10-dhcp-snooping', 'security-fundamentals-5-11-dynamic-arp-inspection'],
+  'port-security': ['security-fundamentals-5-9-port-security'],
+
+  // Domain 6 — Automation & Programmability
+  automation: ['automation-programmability-6-1-why-network-automation'],
+  benefits: ['automation-programmability-6-1-why-network-automation'],
+  sdn: ['automation-programmability-6-3-sdn-architecture'],
+  architecture: ['automation-programmability-6-3-sdn-architecture'],
+  rest: ['automation-programmability-6-6-rest-apis'],
+  api: ['automation-programmability-6-6-rest-apis'],
+  json: ['automation-programmability-6-8-json-data-format'],
+  tools: ['automation-programmability-6-10-ansible', 'automation-programmability-6-12-puppet-chef'],
+  'dna-center': ['automation-programmability-6-5-catalyst-center-dnac'],
+  cisco: ['automation-programmability-6-5-catalyst-center-dnac'],
+  intent: ['automation-programmability-6-4-cisco-sdn-solutions'],
+};
+
+function _unique(values) {
+  return [...new Set((values || []).filter(Boolean))];
+}
+
+function _domainFromTopicId(topicId) {
+  const normalized = String(topicId || '');
+  return Object.keys(FLASHCARD_DOMAIN_DECK_MAP).find((domainId) => normalized.startsWith(`${domainId}-`)) || null;
+}
+
+export function inferFlashcardTopicIds(tags = [], domainId = null) {
+  const normalizedDomain = domainId || null;
+  const topicIds = [];
+
+  tags
+    .map((tag) => String(tag || '').toLowerCase())
+    .forEach((tag) => {
+      (FLASHCARD_TAG_TOPIC_MAP[tag] || []).forEach((topicId) => {
+        const topicDomain = _domainFromTopicId(topicId);
+        if (!normalizedDomain || topicDomain === normalizedDomain) topicIds.push(topicId);
+      });
+    });
+
+  return _unique(topicIds);
+}
+
+export function normalizeCcnaFlashcardDeck(deck) {
+  const domainId = deck.domainId || FLASHCARD_DECK_DOMAIN_MAP[deck.id] || deck.category || 'general';
+  const deckTags = _unique([...(deck.tags || []), `domain:${domainId}`, `deck:${deck.id}`]);
+
+  return {
+    ...deck,
+    domainId,
+    tags: deckTags,
+    cards: (deck.cards || []).map((card) => {
+      const rawTags = _unique(card.tags || []);
+      const topicIds = _unique([
+        ...(card.topicIds || []),
+        ...inferFlashcardTopicIds(rawTags, domainId),
+      ]);
+
+      return {
+        ...card,
+        domainId,
+        topicIds,
+        tags: _unique([
+          ...rawTags,
+          `domain:${domainId}`,
+          ...topicIds.map((topicId) => `topic:${topicId}`),
+        ]),
+      };
+    }),
+  };
+}
+
+export function getNormalizedCcnaDecks() {
+  return ALL_CCNA_DECKS.map((deck) => normalizeCcnaFlashcardDeck(deck));
+}
+
+function _sameStringArray(a = [], b = []) {
+  const left = _unique(a).sort();
+  const right = _unique(b).sort();
+  return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+export function ensureCcnaFlashcardDecks(engine) {
+  if (!engine || typeof engine.getDeck !== 'function') return { deckCount: 0, cardCount: 0 };
+
+  const normalizedDecks = getNormalizedCcnaDecks();
+  let cardCount = 0;
+
+  normalizedDecks.forEach((sourceDeck) => {
+    let deck = engine.getDeck(sourceDeck.id);
+    if (!deck) {
+      deck = engine.createDeck({
+        id: sourceDeck.id,
+        name: sourceDeck.name,
+        description: sourceDeck.description,
+        category: sourceDeck.category,
+        tags: sourceDeck.tags,
+        domainId: sourceDeck.domainId,
+      });
+    } else if (
+      deck.domainId !== sourceDeck.domainId ||
+      deck.name !== sourceDeck.name ||
+      deck.description !== sourceDeck.description ||
+      deck.category !== sourceDeck.category ||
+      !_sameStringArray(deck.tags, sourceDeck.tags)
+    ) {
+      engine.updateDeck(sourceDeck.id, {
+        name: sourceDeck.name,
+        description: sourceDeck.description,
+        category: sourceDeck.category,
+        tags: sourceDeck.tags,
+        domainId: sourceDeck.domainId,
+      });
+      deck = engine.getDeck(sourceDeck.id);
+    }
+
+    sourceDeck.cards.forEach((sourceCard) => {
+      cardCount += 1;
+      const existingCard = (deck.cards || []).find((candidate) => (
+        (sourceCard.id && candidate.id === sourceCard.id) || candidate.front === sourceCard.front
+      ));
+
+      if (!existingCard) {
+        engine.createCard(sourceDeck.id, sourceCard);
+        return;
+      }
+
+      if (
+        existingCard.domainId !== sourceCard.domainId ||
+        !_sameStringArray(existingCard.topicIds, sourceCard.topicIds) ||
+        !_sameStringArray(existingCard.tags, sourceCard.tags)
+      ) {
+        engine.updateCard(sourceDeck.id, existingCard.id, {
+          tags: sourceCard.tags,
+          domainId: sourceCard.domainId,
+          topicIds: sourceCard.topicIds,
+        });
+      }
+    });
+  });
+
+  return { deckCount: normalizedDecks.length, cardCount };
+}
+
 export default ALL_CCNA_DECKS;

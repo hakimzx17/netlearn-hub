@@ -70,14 +70,17 @@ class PathsOverview {
     const isGlowing = vm.isUnlocked;
 
     return `
-      <button class="domain-dot ${isSelected ? 'domain-dot--active' : ''} domain-dot--locked ${isGlowing ? 'domain-dot--glowing' : ''}"
+      <button class="domain-dot ${isSelected ? 'domain-dot--active' : ''} domain-dot--${status} ${isGlowing ? 'domain-dot--glowing' : ''}"
               type="button"
               role="tab"
               aria-selected="${isSelected}"
+              aria-label="${path.title}: ${status}"
               aria-controls="domain-info-panel"
               data-domain-index="${i}"
               style="--path-color: ${path.color}; animation-delay: ${i * 0.07}s">
-        <span class="domain-dot__light" aria-hidden="true"></span>
+        <span class="domain-dot__light" aria-hidden="true">
+          ${status === 'locked' ? renderTokenIcon('LOCK', 'domain-dot__lock') : ''}
+        </span>
         <span class="domain-dot__number">${i + 1}</span>
         <span class="domain-dot__label">${path.title}</span>
         <span class="domain-dot__meta">${vm.pct}% · ${path.examWeight}% exam</span>

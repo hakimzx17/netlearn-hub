@@ -26,6 +26,10 @@ class FlashcardEngine {
       startTime: null,
       ratings: { again: 0, hard: 0, good: 0, easy: 0 }
     };
+    this.currentSessionDeck = null;
+    this.sessionCardRefs = [];
+    this.sessionOptions = {};
+    this.sessionScope = null;
     this.storageKey = 'netlearn_flashcards';
     this._loadFromStorage();
   }
@@ -129,6 +133,7 @@ class FlashcardEngine {
       updatedAt: new Date().toISOString(),
       category: deckData.category || 'general',
       tags: deckData.tags || [],
+      domainId: deckData.domainId || null,
       // Progress stats
       stats: {
         totalCards: 0,
@@ -222,6 +227,8 @@ class FlashcardEngine {
       easeFactor: 2.5,
       nextReview: null,
       lastReview: null,
+      domainId: cardData.domainId || deck.domainId || null,
+      topicIds: Array.isArray(cardData.topicIds) ? [...cardData.topicIds] : [],
       // Metadata
       difficulty: 'new',
       timesReviewed: 0,
@@ -303,26 +310,52 @@ class FlashcardEngine {
     const deck = this.decks.get(deckId);
     if (!deck) throw new Error(`Deck not found: ${deckId}`);
 
-    this.currentDeckId = deckId;
-    this.currentCardIndex = 0;
-    
-    // Reset session stats
-    this.sessionStats = {
-      cardsReviewed: 0,
-      correctAnswers: 0,
-      startTime: new Date(),
-      ratings: { again: 0, hard: 0, good: 0, easy: 0 },
-      deckId
-    };
-
-    // Get cards for this session
     const cards = this.getSessionCards(deckId, options);
-    
-    return {
+    const refs = cards.map((card) => ({ deckId, cardId: card.id }));
+
+    if (refs.length > 0) {
+      this._activateSession({
+        deck: this._snapshotDeck(deck),
+        refs,
+        options,
+        scope: options.scope || options.filter || { deckId, domainId: deck.domainId || null },
+      });
+    } else {
+      this._clearActiveSessionState();
+      this._saveToStorage();
+    }
+
+    return this.resumeSession() || {
+      deck: this._snapshotDeck(deck),
+      cards: [],
+      totalCards: 0,
+      dueCards: 0,
+      context: options.scope || options.filter || null,
+    };
+  }
+
+  /**
+   * Start a study session spanning one or more decks by domain/topic scope.
+   */
+  startScopedSession(scope = {}, options = {}) {
+    const sessionOptions = { includeNew: true, includeDue: true, ...options };
+    const cards = this.getCardsByScope(scope, sessionOptions);
+    const deck = this._createScopedDeckSnapshot(scope, cards);
+    const refs = cards.map((card) => ({ deckId: card.deckId, cardId: card.id }));
+
+    if (refs.length > 0) {
+      this._activateSession({ deck, refs, options: sessionOptions, scope });
+    } else {
+      this._clearActiveSessionState();
+      this._saveToStorage();
+    }
+
+    return this.resumeSession() || {
       deck,
-      cards,
-      totalCards: cards.length,
-      dueCards: cards.filter(c => this.isCardDue(c)).length
+      cards: [],
+      totalCards: 0,
+      dueCards: 0,
+      context: scope,
     };
   }
 
@@ -333,43 +366,58 @@ class FlashcardEngine {
     const deck = this.decks.get(deckId);
     if (!deck) return [];
 
-    const { includeNew = true, includeDue = true, limit = null } = options;
-    
-    let cards = [];
+    const scope = options.scope || options.filter || null;
+    const candidates = deck.cards
+      .filter((card) => this._matchesScope(card, deck, scope))
+      .map((card) => this._decorateCard(card, deck));
 
-    // Get due cards first
-    if (includeDue) {
-      const dueCards = deck.cards.filter(c => this.isCardDue(c));
-      cards.push(...dueCards);
+    return this._filterCardsForSession(candidates, options);
+  }
+
+  /**
+   * Get cards across all decks matching a domain/topic/tag scope.
+   */
+  getCardsByScope(scope = {}, options = {}) {
+    const deckIds = Array.isArray(scope.deckIds) && scope.deckIds.length > 0
+      ? new Set(scope.deckIds)
+      : null;
+    const records = [];
+
+    for (const deck of this.getAllDecks()) {
+      if (deckIds && !deckIds.has(deck.id)) continue;
+      for (const card of deck.cards || []) {
+        if (!this._matchesScope(card, deck, scope)) continue;
+        records.push(this._decorateCard(card, deck));
+      }
     }
 
-    // Add new cards if requested
-    if (includeNew) {
-      const newCards = deck.cards.filter(c => c.difficulty === 'new');
-      cards.push(...newCards);
-    }
+    return this._filterCardsForSession(records, options);
+  }
 
-    // Remove duplicates
-    cards = [...new Set(cards)];
+  /**
+   * Summarize cards for a domain/topic scope.
+   */
+  getScopeStats(scope = {}) {
+    const cards = this.getCardsByScope(scope, { includeAll: true });
+    const totalCards = cards.length;
+    const masteredCards = cards.filter(c => c.difficulty === 'mature').length;
 
-    // Apply limit
-    if (limit && cards.length > limit) {
-      cards = cards.slice(0, limit);
-    }
-
-    return cards;
+    return {
+      totalCards,
+      dueToday: cards.filter(c => this.isCardDue(c)).length,
+      newCards: cards.filter(c => c.difficulty === 'new').length,
+      learningCards: cards.filter(c => c.difficulty === 'learning').length,
+      reviewCards: cards.filter(c => c.difficulty === 'young' || c.difficulty === 'mature').length,
+      masteredCards,
+      completion: totalCards > 0 ? Math.round((masteredCards / totalCards) * 100) : 0,
+    };
   }
 
   /**
    * Get current card in session
    */
   getCurrentCard() {
-    if (!this.currentDeckId) return null;
-    
-    const deck = this.decks.get(this.currentDeckId);
-    if (!deck) return null;
-
-    const cards = this.getSessionCards(this.currentDeckId);
+    const cards = this._getActiveSessionCards();
     return cards[this.currentCardIndex] || null;
   }
 
@@ -388,9 +436,10 @@ class FlashcardEngine {
    */
   setCurrentCardIndex(index) {
     const next = Number.isFinite(index) ? Math.floor(index) : 0;
-    const cards = this.currentDeckId ? this.getSessionCards(this.currentDeckId) : [];
+    const cards = this._getActiveSessionCards();
     const maxIndex = Math.max(cards.length - 1, 0);
     this.currentCardIndex = Math.min(Math.max(next, 0), maxIndex);
+    this._saveToStorage();
     return this.currentCardIndex;
   }
 
@@ -398,35 +447,40 @@ class FlashcardEngine {
    * Rate current card and move to next
    */
   rateCurrentCard(rating) {
+    const currentRef = this.sessionCardRefs[this.currentCardIndex];
     const card = this.getCurrentCard();
-    if (!card) return null;
+    if (!card || !currentRef) return null;
+
+    const normalizedRating = Math.max(0, Math.min(3, Number.isFinite(Number(rating)) ? Number(rating) : 0));
 
     // Update card with SM-2 algorithm
-    const updates = this.calculateSM2(card, rating);
+    const updates = this.calculateSM2(card, normalizedRating);
     
     // Update card statistics
     updates.timesReviewed = (card.timesReviewed || 0) + 1;
-    if (rating >= 2) {
+    if (normalizedRating >= 2) {
       updates.timesCorrect = (card.timesCorrect || 0) + 1;
     }
 
     // Update session stats
     this.sessionStats.cardsReviewed++;
-    if (rating >= 2) this.sessionStats.correctAnswers++;
+    if (normalizedRating >= 2) this.sessionStats.correctAnswers++;
     
     const ratingNames = ['again', 'hard', 'good', 'easy'];
-    this.sessionStats.ratings[ratingNames[rating]]++;
+    this.sessionStats.ratings[ratingNames[normalizedRating]]++;
 
     // Apply updates
-    this.updateCard(this.currentDeckId, card.id, updates);
+    this.updateCard(currentRef.deckId, card.id, updates);
     
     // Move to next card
     this.currentCardIndex++;
+    this._saveToStorage();
 
     return {
       card,
       updates,
-      sessionComplete: this.currentCardIndex >= this.getSessionCards(this.currentDeckId).length,
+      rating: normalizedRating,
+      sessionComplete: this.currentCardIndex >= this.sessionCardRefs.length,
       sessionStats: this.getSessionStats()
     };
   }
@@ -435,8 +489,10 @@ class FlashcardEngine {
    * Move to next card without rating
    */
   nextCard() {
-    const cards = this.getSessionCards(this.currentDeckId);
+    const cards = this._getActiveSessionCards();
+    if (cards.length === 0) return null;
     this.currentCardIndex = Math.min(this.currentCardIndex + 1, cards.length - 1);
+    this._saveToStorage();
     return this.getCurrentCard();
   }
 
@@ -445,6 +501,7 @@ class FlashcardEngine {
    */
   previousCard() {
     this.currentCardIndex = Math.max(this.currentCardIndex - 1, 0);
+    this._saveToStorage();
     return this.getCurrentCard();
   }
 
@@ -453,9 +510,10 @@ class FlashcardEngine {
    */
   getSessionStats() {
     const { cardsReviewed, correctAnswers, ratings, startTime } = this.sessionStats;
+    const startTimestamp = startTime ? new Date(startTime).getTime() : null;
     
     const accuracy = cardsReviewed > 0 ? Math.round((correctAnswers / cardsReviewed) * 100) : 0;
-    const elapsed = startTime ? Math.round((new Date() - startTime) / 1000) : 0;
+    const elapsed = startTimestamp ? Math.max(0, Math.round((Date.now() - startTimestamp) / 1000)) : 0;
     
     return {
       cardsReviewed,
@@ -472,23 +530,169 @@ class FlashcardEngine {
    */
   endSession() {
     const stats = this.getSessionStats();
+    const activeDeckIds = new Set(this.sessionCardRefs.map((ref) => ref.deckId).filter(Boolean));
+    if (this.currentDeckId && this.decks.has(this.currentDeckId)) activeDeckIds.add(this.currentDeckId);
     
     // Update deck stats
-    if (this.currentDeckId) {
-      const deck = this.decks.get(this.currentDeckId);
+    activeDeckIds.forEach((deckId) => {
+      const deck = this.decks.get(deckId);
       if (deck) {
         deck.stats.lastStudied = new Date().toISOString();
         deck.stats.totalTime += stats.elapsed;
         this._updateDeckStats(deck);
       }
-    }
+    });
     
+    this._clearActiveSessionState();
     this._saveToStorage();
     
-    this.currentDeckId = null;
-    this.currentCardIndex = 0;
-    
     return stats;
+  }
+
+  hasActiveSession() {
+    return Boolean(this.currentDeckId && this.sessionCardRefs.length > 0);
+  }
+
+  resumeSession() {
+    if (!this.hasActiveSession()) return null;
+    const deck = this.currentSessionDeck || this._snapshotDeck(this.decks.get(this.currentDeckId));
+    const cards = this._getActiveSessionCards();
+
+    return {
+      deck,
+      cards,
+      totalCards: cards.length,
+      dueCards: cards.filter((card) => this.isCardDue(card)).length,
+      context: this.sessionScope || this.sessionStats.context || null,
+    };
+  }
+
+  _activateSession({ deck, refs, options = {}, scope = null }) {
+    this.currentDeckId = deck.id;
+    this.currentSessionDeck = deck;
+    this.currentCardIndex = 0;
+    this.sessionCardRefs = Array.isArray(refs) ? refs.filter(ref => ref?.deckId && ref?.cardId) : [];
+    this.sessionOptions = { ...options };
+    this.sessionScope = scope;
+
+    this.sessionStats = {
+      cardsReviewed: 0,
+      correctAnswers: 0,
+      startTime: new Date().toISOString(),
+      ratings: { again: 0, hard: 0, good: 0, easy: 0 },
+      deckId: deck.id,
+      context: scope,
+    };
+
+    this._saveToStorage();
+  }
+
+  _getActiveSessionCards() {
+    return (this.sessionCardRefs || [])
+      .map((ref) => this._resolveCardRef(ref))
+      .filter(Boolean);
+  }
+
+  _resolveCardRef(ref) {
+    const deck = this.decks.get(ref?.deckId);
+    if (!deck) return null;
+    const card = (deck.cards || []).find((candidate) => candidate.id === ref.cardId);
+    return card ? this._decorateCard(card, deck) : null;
+  }
+
+  _decorateCard(card, deck) {
+    return {
+      ...card,
+      deckId: deck.id,
+      deckName: deck.name,
+      domainId: card.domainId || deck.domainId || null,
+      topicIds: Array.isArray(card.topicIds) ? [...card.topicIds] : [],
+    };
+  }
+
+  _snapshotDeck(deck) {
+    if (!deck) return null;
+    return {
+      id: deck.id,
+      name: deck.name,
+      description: deck.description || '',
+      category: deck.category || 'general',
+      tags: Array.isArray(deck.tags) ? [...deck.tags] : [],
+      domainId: deck.domainId || null,
+    };
+  }
+
+  _createScopedDeckSnapshot(scope = {}, cards = []) {
+    const scopeLabel = scope.topicTitle || scope.domainTitle || scope.title || 'Focused Review';
+    const idParts = ['scope', scope.domainId, scope.topicId].filter(Boolean);
+
+    return {
+      id: idParts.length > 1 ? idParts.join(':') : `scope:${Date.now()}`,
+      name: scope.topicTitle ? `${scope.topicTitle} Flashcards` : `${scopeLabel} Flashcards`,
+      description: scope.topicId
+        ? `Topic-tagged active recall queue for ${scopeLabel}.`
+        : `Domain-tagged active recall queue across ${cards.length} cards.`,
+      category: 'scoped',
+      tags: [scope.domainId ? `domain:${scope.domainId}` : null, scope.topicId ? `topic:${scope.topicId}` : null].filter(Boolean),
+      domainId: scope.domainId || null,
+    };
+  }
+
+  _filterCardsForSession(cards, options = {}) {
+    const {
+      includeNew = true,
+      includeDue = true,
+      includeAll = false,
+      fallbackToAll = false,
+      limit = null,
+    } = options;
+
+    let selected = [];
+    if (includeAll) {
+      selected = [...cards];
+    } else {
+      if (includeDue) selected.push(...cards.filter((card) => this.isCardDue(card)));
+      if (includeNew) selected.push(...cards.filter((card) => card.difficulty === 'new'));
+      selected = this._uniqueCards(selected);
+      if (selected.length === 0 && fallbackToAll) selected = [...cards];
+    }
+
+    const normalizedLimit = Number.isInteger(limit) && limit > 0 ? limit : null;
+    return normalizedLimit ? selected.slice(0, normalizedLimit) : selected;
+  }
+
+  _uniqueCards(cards) {
+    const seen = new Set();
+    return cards.filter((card) => {
+      const key = `${card.deckId || ''}:${card.id}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+
+  _matchesScope(card, deck, scope = null) {
+    if (!scope) return true;
+    const tags = new Set([...(deck.tags || []), ...(card.tags || [])].map((tag) => String(tag).toLowerCase()));
+    const cardDomainId = card.domainId || deck.domainId || null;
+    const topicIds = Array.isArray(card.topicIds) ? card.topicIds : [];
+
+    if (scope.domainId) {
+      const domainTag = `domain:${scope.domainId}`.toLowerCase();
+      if (cardDomainId !== scope.domainId && !tags.has(domainTag)) return false;
+    }
+
+    if (scope.topicId) {
+      const topicTag = `topic:${scope.topicId}`.toLowerCase();
+      if (!topicIds.includes(scope.topicId) && !tags.has(topicTag)) return false;
+    }
+
+    if (Array.isArray(scope.tags) && scope.tags.length > 0) {
+      const hasAnyTag = scope.tags.some((tag) => tags.has(String(tag).toLowerCase()));
+      if (!hasAnyTag) return false;
+    }
+
+    return true;
   }
 
   // ═══════════════════════════════════════════
@@ -593,12 +797,15 @@ class FlashcardEngine {
         name: deck.name,
         description: deck.description,
         category: deck.category,
+        domainId: deck.domainId || null,
         tags: deck.tags,
         cards: deck.cards.map(c => ({
           id: c.id,
           front: c.front,
           back: c.back,
-          tags: c.tags
+          tags: c.tags,
+          domainId: c.domainId || deck.domainId || null,
+          topicIds: Array.isArray(c.topicIds) ? c.topicIds : []
           // Note: Spaced repetition data is NOT exported
           // Each user has their own learning history
         }))
@@ -655,7 +862,8 @@ class FlashcardEngine {
       name: deckData.name,
       description: deckData.description,
       category: deckData.category || 'imported',
-      tags: deckData.tags || []
+      tags: deckData.tags || [],
+      domainId: deckData.domainId || null
     });
 
     // Import cards
@@ -664,7 +872,9 @@ class FlashcardEngine {
         this.createCard(newDeck.id, {
           front: cardData.front,
           back: cardData.back,
-          tags: cardData.tags || []
+          tags: cardData.tags || [],
+          domainId: cardData.domainId || newDeck.domainId || null,
+          topicIds: Array.isArray(cardData.topicIds) ? cardData.topicIds : []
         });
       });
     }
@@ -750,8 +960,10 @@ class FlashcardEngine {
    */
   _saveToStorage() {
     try {
+      if (typeof localStorage === 'undefined') return;
       const data = {
         decks: Array.from(this.decks.entries()),
+        activeSession: this._serializeActiveSession(),
         version: '1.0'
       };
       localStorage.setItem(this.storageKey, JSON.stringify(data));
@@ -765,15 +977,87 @@ class FlashcardEngine {
    */
   _loadFromStorage() {
     try {
+      if (typeof localStorage === 'undefined') return;
       const data = localStorage.getItem(this.storageKey);
       if (data) {
         const parsed = JSON.parse(data);
         this.decks = new Map(parsed.decks || []);
+        this._restoreActiveSession(parsed.activeSession || null);
       }
     } catch (e) {
       console.error('Failed to load flashcards from storage:', e);
       this.decks = new Map();
+      this._clearActiveSessionState();
     }
+  }
+
+  _serializeActiveSession() {
+    if (!this.currentDeckId || !Array.isArray(this.sessionCardRefs) || this.sessionCardRefs.length === 0) {
+      return null;
+    }
+
+    return {
+      currentDeckId: this.currentDeckId,
+      currentCardIndex: this.currentCardIndex,
+      currentSessionDeck: this.currentSessionDeck,
+      sessionCardRefs: this.sessionCardRefs,
+      sessionOptions: this.sessionOptions,
+      sessionScope: this.sessionScope,
+      sessionStats: this.sessionStats,
+      savedAt: new Date().toISOString(),
+    };
+  }
+
+  _restoreActiveSession(activeSession) {
+    if (!activeSession || !Array.isArray(activeSession.sessionCardRefs) || activeSession.sessionCardRefs.length === 0) {
+      this._clearActiveSessionState();
+      return;
+    }
+
+    const refs = activeSession.sessionCardRefs.filter((ref) => {
+      const deck = this.decks.get(ref?.deckId);
+      return deck && (deck.cards || []).some((card) => card.id === ref.cardId);
+    });
+
+    if (refs.length === 0) {
+      this._clearActiveSessionState();
+      return;
+    }
+
+    this.currentDeckId = activeSession.currentDeckId || activeSession.currentSessionDeck?.id || refs[0].deckId;
+    this.currentSessionDeck = activeSession.currentSessionDeck || this._snapshotDeck(this.decks.get(this.currentDeckId));
+    this.sessionCardRefs = refs;
+    this.currentCardIndex = Math.min(Math.max(Number(activeSession.currentCardIndex) || 0, 0), refs.length);
+    this.sessionOptions = activeSession.sessionOptions || {};
+    this.sessionScope = activeSession.sessionScope || activeSession.sessionStats?.context || null;
+    this.sessionStats = {
+      cardsReviewed: Number(activeSession.sessionStats?.cardsReviewed) || 0,
+      correctAnswers: Number(activeSession.sessionStats?.correctAnswers) || 0,
+      startTime: activeSession.sessionStats?.startTime || new Date().toISOString(),
+      ratings: {
+        again: Number(activeSession.sessionStats?.ratings?.again) || 0,
+        hard: Number(activeSession.sessionStats?.ratings?.hard) || 0,
+        good: Number(activeSession.sessionStats?.ratings?.good) || 0,
+        easy: Number(activeSession.sessionStats?.ratings?.easy) || 0,
+      },
+      deckId: activeSession.sessionStats?.deckId || this.currentDeckId,
+      context: this.sessionScope,
+    };
+  }
+
+  _clearActiveSessionState() {
+    this.currentDeckId = null;
+    this.currentCardIndex = 0;
+    this.currentSessionDeck = null;
+    this.sessionCardRefs = [];
+    this.sessionOptions = {};
+    this.sessionScope = null;
+    this.sessionStats = {
+      cardsReviewed: 0,
+      correctAnswers: 0,
+      startTime: null,
+      ratings: { again: 0, hard: 0, good: 0, easy: 0 }
+    };
   }
 
   /**
@@ -781,15 +1065,15 @@ class FlashcardEngine {
    */
   clearAllData() {
     this.decks.clear();
-    this.currentDeckId = null;
-    this.currentCardIndex = 0;
-    localStorage.removeItem(this.storageKey);
+    this._clearActiveSessionState();
+    if (typeof localStorage !== 'undefined') localStorage.removeItem(this.storageKey);
   }
 
   /**
    * Get storage size
    */
   getStorageInfo() {
+    if (typeof localStorage === 'undefined') return { sizeBytes: 0, sizeKB: 0 };
     const data = localStorage.getItem(this.storageKey) || '';
     return {
       sizeBytes: new Blob([data]).size,

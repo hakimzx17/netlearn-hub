@@ -271,7 +271,7 @@
 
 .domains-linear__rail {
   position: absolute;
-  left: 23px;
+  left: 20px;
   top: var(--space-4);
   bottom: var(--space-4);
   width: 1px;
@@ -300,14 +300,14 @@
   background: transparent;
   color: var(--color-text-secondary);
   display: grid;
-  grid-template-columns: 40px 1fr;
+  grid-template-columns: 48px 1fr;
   grid-template-areas:
     "light label"
     "light meta";
   column-gap: var(--space-4);
   align-items: center;
   width: 100%;
-  min-height: 56px;
+  min-height: 68px;
   padding: var(--space-2) var(--space-4) var(--space-2) 0;
   border-radius: var(--radius-lg);
   text-align: left;
@@ -333,24 +333,52 @@
 .domain-dot__light {
   grid-area: light;
   position: relative;
-  width: 12px;
-  height: 12px;
-  margin-left: 14px;
+  width: 24px;
+  height: 24px;
+  margin-left: 8px;
   border-radius: var(--radius-full);
   background: var(--color-bg-raised);
   border: 2px solid var(--color-text-muted);
-  box-shadow: 0 0 0 5px var(--color-bg-deepest);
+  box-shadow: 0 0 0 6px var(--color-bg-deepest);
   transition: border-color var(--transition-base), box-shadow var(--transition-base);
 }
 
 .domain-dot__light::after {
   content: '';
   position: absolute;
-  inset: 2px;
+  inset: 5px;
+  z-index: 0;
   border-radius: inherit;
   background: var(--path-color);
   opacity: 0;
   transition: opacity var(--transition-base), box-shadow var(--transition-base), transform var(--transition-base);
+}
+
+.domain-dot__lock {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  z-index: var(--z-base);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  color: color-mix(in srgb, var(--color-error) 68%, var(--color-bg-deepest));
+  transform: translate(-50%, -50%);
+  transition: color var(--transition-base), opacity var(--transition-base);
+  pointer-events: none;
+}
+
+.domain-dot__lock svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  stroke-width: 2.4;
+}
+
+.domain-dot--locked:hover .domain-dot__lock,
+.domain-dot--locked.domain-dot--active .domain-dot__lock {
+  color: color-mix(in srgb, var(--color-error) 68%, var(--color-bg-deepest));
 }
 
 .domain-dot:hover .domain-dot__light::after,
@@ -362,7 +390,7 @@
 
 .domain-dot--glowing .domain-dot__light {
   border-color: var(--path-color);
-  box-shadow: 0 0 0 5px var(--color-bg-deepest), 0 0 14px color-mix(in srgb, var(--path-color) 50%, transparent);
+  box-shadow: 0 0 0 6px var(--color-bg-deepest), 0 0 18px color-mix(in srgb, var(--path-color) 50%, transparent);
 }
 
 .domain-dot--glowing .domain-dot__light::after {
@@ -378,8 +406,8 @@
 .domain-dot__number {
   position: absolute;
   left: 0;
-  width: 40px;
-  transform: translateY(22px);
+  width: 48px;
+  transform: translateY(30px);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   font-weight: 700;
@@ -618,6 +646,92 @@
   height: 100%;
   border-radius: var(--radius-full);
   transition: width 0.6s ease;
+}
+
+.path-flashcard-review {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: var(--space-4);
+  align-items: center;
+  margin: 0 0 var(--space-6);
+  padding: var(--space-5);
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  border: 1px solid color-mix(in srgb, var(--path-color, var(--color-cyan)) 28%, var(--color-border));
+  background:
+    radial-gradient(circle at top left, color-mix(in srgb, var(--path-color, var(--color-cyan)) 18%, transparent), transparent 42%),
+    linear-gradient(135deg, color-mix(in srgb, var(--path-color, var(--color-cyan)) 9%, var(--color-bg-panel)), var(--color-bg-panel));
+  box-shadow: var(--shadow-md);
+}
+
+.path-flashcard-review__halo {
+  position: absolute;
+  inset: auto var(--space-5) calc(var(--space-8) * -1) auto;
+  width: 11rem;
+  height: 11rem;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--path-color, var(--color-cyan)) 14%, transparent);
+  filter: blur(28px);
+  pointer-events: none;
+}
+
+.path-flashcard-review__intro,
+.path-flashcard-review__metrics,
+.path-flashcard-review__btn {
+  position: relative;
+}
+
+.path-flashcard-review__eyebrow,
+.lesson-flashcard-cta__eyebrow {
+  margin: 0 0 var(--space-1);
+  color: color-mix(in srgb, var(--path-color, var(--color-cyan)) 70%, var(--color-text-primary));
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.path-flashcard-review__title {
+  margin: 0 0 var(--space-2);
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+}
+
+.path-flashcard-review__body {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+}
+
+.path-flashcard-review__metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(74px, 1fr));
+  gap: var(--space-2);
+}
+
+.path-flashcard-review__metric {
+  min-width: 74px;
+  padding: var(--space-3);
+  border: 1px solid color-mix(in srgb, var(--path-color, var(--color-cyan)) 18%, var(--color-border));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-bg-deepest) 72%, transparent);
+  text-align: center;
+}
+
+.path-flashcard-review__metric span {
+  display: block;
+  color: var(--color-text-primary);
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 700;
+}
+
+.path-flashcard-review__metric small {
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
 }
 
 /* Timeline layout */
@@ -1979,6 +2093,88 @@
   font-family: var(--font-display);
   font-size: var(--text-lg);
   margin-bottom: var(--space-2);
+}
+
+.lesson-flashcard-cta {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--space-4);
+  align-items: center;
+  padding: var(--space-4);
+  border: 1px solid color-mix(in srgb, var(--color-cyan) 22%, var(--color-border));
+  border-radius: var(--radius-lg);
+  background:
+    radial-gradient(circle at top left, color-mix(in srgb, var(--color-cyan) 14%, transparent), transparent 38%),
+    linear-gradient(135deg, color-mix(in srgb, var(--color-bg-panel) 88%, var(--color-cyan)), var(--color-bg-panel));
+}
+
+.lesson-flashcard-cta__signal {
+  width: 3rem;
+  height: 3rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-lg);
+  color: var(--color-cyan);
+  background: color-mix(in srgb, var(--color-cyan) 12%, var(--color-bg-deepest));
+  box-shadow: var(--shadow-cyan);
+}
+
+.lesson-flashcard-cta__icon svg {
+  width: 1.65rem;
+  height: 1.65rem;
+}
+
+.lesson-flashcard-cta__title {
+  margin: 0 0 var(--space-1);
+  font-family: var(--font-display);
+  font-size: var(--text-md);
+}
+
+.lesson-flashcard-cta__body {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+}
+
+.lesson-flashcard-cta__metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(74px, auto));
+  gap: var(--space-2);
+  align-items: stretch;
+}
+
+.lesson-flashcard-cta__metrics div {
+  min-width: 74px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-bg-deepest) 78%, transparent);
+}
+
+.lesson-flashcard-cta__metrics span,
+.lesson-flashcard-cta__metrics small {
+  display: block;
+}
+
+.lesson-flashcard-cta__metrics span {
+  color: var(--color-text-primary);
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  font-weight: 700;
+}
+
+.lesson-flashcard-cta__metrics small {
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+}
+
+.lesson-flashcard-cta__btn-icon svg {
+  width: 1rem;
+  height: 1rem;
 }
 
 /* Lesson Complete card */
@@ -4765,6 +4961,16 @@
   .vlsm-result-grid {
     grid-template-columns: 1fr 1fr;
   }
+
+  .path-flashcard-review,
+  .lesson-flashcard-cta {
+    grid-template-columns: 1fr;
+  }
+
+  .path-flashcard-review__metrics,
+  .lesson-flashcard-cta__metrics {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 /* Mobile - Below 768px */
@@ -4858,6 +5064,16 @@
   
   .vlsm-result-grid {
     grid-template-columns: 1fr;
+  }
+
+  .path-flashcard-review__metrics,
+  .lesson-flashcard-cta__metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .path-flashcard-review__btn,
+  .lesson-flashcard-launch {
+    width: 100%;
   }
   
   .vlsm-subnet-card {

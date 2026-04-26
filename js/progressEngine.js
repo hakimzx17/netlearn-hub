@@ -248,23 +248,90 @@ class ProgressEngine {
   // ─── Weak Area Detection ────────────────────────────────
 
   /**
-   * Returns modules where average quiz score is below threshold.
+   * Returns modules where average quiz score is below threshold or flashcard recall failed.
    * @param {number} threshold — default 70
-   * @returns {Array<{moduleId, averageScore}>}
+   * @returns {Array<{moduleId, averageScore, source?: string}>}
    */
   getWeakAreas(threshold = 70) {
     const quizScores = stateManager.getState('quizScores') || {};
-    const weak = [];
+    const progress = stateManager.getState('userProgress') || {};
+    const flashcardWeakCards = progress.flashcardWeakCards || {};
+    const weakByModule = new Map();
 
     for (const [moduleId, scores] of Object.entries(quizScores)) {
       if (scores.length === 0) continue;
       const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
       if (avg < threshold) {
-        weak.push({ moduleId, averageScore: Math.round(avg) });
+        weakByModule.set(moduleId, { moduleId, averageScore: Math.round(avg), source: 'quiz' });
       }
     }
 
-    return weak.sort((a, b) => a.averageScore - b.averageScore).slice(0, 3);
+    Object.entries(flashcardWeakCards).forEach(([moduleId, record]) => {
+      const againCount = Number(record?.againCount) || 0;
+      if (againCount <= 0) return;
+
+      const recallScore = Math.max(0, threshold - (againCount * 10));
+      const existing = weakByModule.get(moduleId);
+      weakByModule.set(moduleId, {
+        ...(existing || { moduleId }),
+        averageScore: existing ? Math.min(existing.averageScore, recallScore) : recallScore,
+        source: existing ? 'quiz+flashcards' : 'flashcards',
+        flashcardAgainCount: againCount,
+        flashcardCardIds: record.cardIds || [],
+        lastFlashcardAgainAt: record.lastAgainAt || null,
+      });
+    });
+
+    return [...weakByModule.values()]
+      .sort((a, b) => a.averageScore - b.averageScore)
+      .slice(0, 3);
+  }
+
+  recordFlashcardReview(review = {}) {
+    if (review.rating !== 0 && review.rating !== 'again') return null;
+
+    const topicIds = Array.isArray(review.topicIds) && review.topicIds.length > 0
+      ? review.topicIds
+      : (review.topicId ? [review.topicId] : []);
+
+    if (topicIds.length === 0) return null;
+
+    const progress = stateManager.getState('userProgress');
+    const flashcardWeakCards = { ...(progress.flashcardWeakCards || {}) };
+    const now = Date.now();
+
+    topicIds.forEach((topicId) => {
+      const previous = flashcardWeakCards[topicId] || {
+        againCount: 0,
+        cardIds: [],
+        cardFronts: [],
+        domainId: review.domainId || null,
+        lastAgainAt: null,
+      };
+      const cardIds = new Set(previous.cardIds || []);
+      if (review.cardId) cardIds.add(review.cardId);
+      const cardFronts = new Set(previous.cardFronts || []);
+      if (review.front) cardFronts.add(String(review.front).slice(0, 140));
+
+      flashcardWeakCards[topicId] = {
+        ...previous,
+        againCount: (previous.againCount || 0) + 1,
+        cardIds: [...cardIds],
+        cardFronts: [...cardFronts].slice(-6),
+        domainId: review.domainId || previous.domainId || null,
+        deckId: review.deckId || previous.deckId || null,
+        lastAgainAt: now,
+      };
+    });
+
+    const updatedProgress = {
+      ...progress,
+      flashcardWeakCards,
+    };
+
+    stateManager.setState('userProgress', updatedProgress);
+    eventBus.emit('progress:flashcard-weak-card', { ...review, topicIds, timestamp: now });
+    return flashcardWeakCards;
   }
 
   // ─── Streak ─────────────────────────────────────────────

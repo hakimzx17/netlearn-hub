@@ -11,6 +11,10 @@ import { eventBus }       from '../../js/eventBus.js';
 import { getPathById, getModuleById, SIMULATION_ROUTE_MAP } from '../../data/pathRegistry.js';
 import { AdvancedQuizMode } from '../../components/AdvancedQuizMode.js';
 import { renderTokenIcon } from '../../utils/tokenIcons.js';
+import { flashcardEngine } from '../../js/flashcardEngine.js';
+import { ensureCcnaFlashcardDecks } from '../../data/ccnaFlashcards.js';
+
+const FLASHCARD_LAUNCH_CONTEXT_KEY = 'netlearn:flashcardLaunchContext';
 
 class LessonPage {
   static VALID_TABS = new Set(['theory', 'simulation', 'quiz']);
@@ -647,6 +651,7 @@ class LessonPage {
               Question authoring is planned for a later content pass.
             </p>
           </div>
+          ${this._renderFlashcardQuizCTA(path, mod)}
           <div class="card" style="margin-top:1.5rem;">
             <h4 style="margin-top:0;">Assessment Plan</h4>
             <ul class="theory-takeaways__list">
@@ -680,6 +685,7 @@ class LessonPage {
             Answer ${mod.quiz.count} questions. Score at least ${mod.quiz.passingScore}% to complete this topic.
           </p>
         </div>
+        ${this._renderFlashcardQuizCTA(path, mod)}
         <div id="quiz-container"></div>
         ${isDone ? `
           <div class="lesson-complete-card">
@@ -695,6 +701,74 @@ class LessonPage {
         ` : ''}
       </div>
     `;
+  }
+
+  _getLessonFlashcardStats(path, mod) {
+    ensureCcnaFlashcardDecks(flashcardEngine);
+    const topicStats = flashcardEngine.getScopeStats({ domainId: path.id, topicId: mod.id });
+    const domainStats = flashcardEngine.getScopeStats({ domainId: path.id });
+
+    return { topicStats, domainStats };
+  }
+
+  _renderFlashcardQuizCTA(path, mod) {
+    const { topicStats, domainStats } = this._getLessonFlashcardStats(path, mod);
+    const hasTopicCards = topicStats.totalCards > 0;
+    const availableCards = hasTopicCards ? topicStats.totalCards : domainStats.totalCards;
+    const dueCards = hasTopicCards ? topicStats.dueToday : domainStats.dueToday;
+    const scopeLabel = hasTopicCards ? 'Topic-tagged queue' : 'Domain fallback queue';
+
+    return `
+      <section class="lesson-flashcard-cta" aria-label="Flashcard review for ${this._escapeAttr(mod.title)}">
+        <div class="lesson-flashcard-cta__signal">
+          ${renderTokenIcon('LEARN', 'lesson-flashcard-cta__icon')}
+        </div>
+        <div class="lesson-flashcard-cta__copy">
+          <p class="lesson-flashcard-cta__eyebrow">Spaced-Repetition Recovery</p>
+          <h4 class="lesson-flashcard-cta__title">Review with Flashcards</h4>
+          <p class="lesson-flashcard-cta__body">
+            Launch a filtered SM-2 queue for ${this._escapeHtml(mod.code)} ${this._escapeHtml(mod.title)} before or after the quiz.
+            ${hasTopicCards ? 'Cards are matched by topicId tags.' : 'No exact topic cards are due yet, so the domain-tagged deck is ready as fallback.'}
+          </p>
+        </div>
+        <div class="lesson-flashcard-cta__metrics" aria-label="Flashcard queue summary">
+          <div>
+            <span>${dueCards}</span>
+            <small>Due</small>
+          </div>
+          <div>
+            <span>${availableCards}</span>
+            <small>Cards</small>
+          </div>
+          <div>
+            <span>${scopeLabel}</span>
+            <small>Scope</small>
+          </div>
+        </div>
+        <button class="btn btn-secondary lesson-flashcard-launch" type="button">
+          ${renderTokenIcon('FOCUS', 'lesson-flashcard-cta__btn-icon')} Review with Flashcards
+        </button>
+      </section>
+    `;
+  }
+
+  _launchLessonFlashcards() {
+    const path = getPathById(this._pathId);
+    const mod = getModuleById(this._pathId, this._moduleId);
+    if (!path || !mod) return;
+
+    const context = {
+      source: 'lesson-quiz-tab',
+      domainId: path.id,
+      domainTitle: path.title,
+      topicId: mod.id,
+      topicTitle: mod.title,
+      returnRoute: `#/paths/${path.id}/${mod.id}?tab=quiz`,
+      limit: 20,
+    };
+
+    sessionStorage.setItem(FLASHCARD_LAUNCH_CONTEXT_KEY, JSON.stringify(context));
+    eventBus.emit('nav:route-change', { route: '/flashcards' });
   }
 
   _bindTabEvents() {
@@ -735,6 +809,12 @@ class LessonPage {
         e.preventDefault();
         this._setActiveTab(trigger.getAttribute('data-tab'));
       });
+    });
+
+    this.container.querySelectorAll('.lesson-flashcard-launch').forEach((button) => {
+      if (button.dataset.flashcardBound === 'true') return;
+      button.dataset.flashcardBound = 'true';
+      button.addEventListener('click', () => this._launchLessonFlashcards());
     });
 
     // Auto-init quiz if already on quiz tab

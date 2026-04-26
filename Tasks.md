@@ -244,14 +244,14 @@
 
 ---
 
-## M17 — Flashcard System Integration ⬜
+## M17 — Flashcard System Integration ✅
 > Connect the SM-2 flashcard engine to the learning path
 
-- [ ] Add "Review with Flashcards" button to `LessonPage` quiz tab
-- [ ] Filter `ccnaFlashcards.js` by `topicId`/`domainId` tags when launching from a lesson
-- [ ] Add "Flashcard Review" section to `PathLanding.js` domain page (shows due cards for that domain)
-- [ ] Pipe flashcard weak cards (`again` ratings) into `progressEngine.getWeakAreas()` remediation list
-- [ ] Ensure flashcard session stats persist correctly across navigation (no data loss on route change)
+- [x] Add "Review with Flashcards" button to `LessonPage` quiz tab
+- [x] Filter `ccnaFlashcards.js` by `topicId`/`domainId` tags when launching from a lesson
+- [x] Add "Flashcard Review" section to `PathLanding.js` domain page (shows due cards for that domain)
+- [x] Pipe flashcard weak cards (`again` ratings) into `progressEngine.getWeakAreas()` remediation list
+- [x] Ensure flashcard session stats persist correctly across navigation (no data loss on route change)
 
 ---
 

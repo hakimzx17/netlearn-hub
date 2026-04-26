@@ -8,6 +8,10 @@ import { eventBus } from '../../js/eventBus.js';
 import { progressEngine } from '../../js/progressEngine.js';
 import { getPathById, ALL_PATHS } from '../../data/pathRegistry.js';
 import { renderTokenIcon } from '../../utils/tokenIcons.js';
+import { flashcardEngine } from '../../js/flashcardEngine.js';
+import { ensureCcnaFlashcardDecks } from '../../data/ccnaFlashcards.js';
+
+const FLASHCARD_LAUNCH_CONTEXT_KEY = 'netlearn:flashcardLaunchContext';
 
 class PathLanding {
   constructor() {
@@ -37,6 +41,8 @@ class PathLanding {
       return;
     }
 
+    ensureCcnaFlashcardDecks(flashcardEngine);
+
     const isUnlocked = progressEngine.isPathUnlocked(path, ALL_PATHS);
     const adminPreview = stateManager.getState('adminPreview') === true;
     const pathDone   = path.modules.filter((module) => progressEngine.isTopicComplete(module.id)).length;
@@ -56,6 +62,7 @@ class PathLanding {
     const prereqTitles = (path.prerequisites || [])
       .map((preId) => ALL_PATHS.find((candidate) => candidate.id === preId)?.title || preId)
       .join(' and ');
+    const flashcardStats = flashcardEngine.getScopeStats({ domainId: path.id });
 
     if (!isUnlocked) {
       this.container.innerHTML = `
@@ -94,6 +101,8 @@ class PathLanding {
             <span class="text-mono text-sm" style="color:${path.color}">${pathDone}/${path.modules.length} topics complete (${pct}%)</span>
           </div>
         </div>
+
+        ${this._renderFlashcardReviewSection(path, flashcardStats)}
 
         <div class="path-modules-timeline">
           ${path.modules.map((mod, i) => {
@@ -233,13 +242,65 @@ class PathLanding {
     this._bindPageActions(path, { finalUnlocked, finalPassed, finalExamAuthored });
   }
 
+  _renderFlashcardReviewSection(path, stats) {
+    const dueLabel = stats.dueToday > 0 ? 'Due now' : 'Queue stable';
+    const completionLabel = stats.completion >= 70 ? 'Maintained' : stats.completion > 0 ? 'Building' : 'Fresh deck';
+
+    return `
+      <section class="path-flashcard-review" style="--path-color:${path.color}" aria-label="${this._escapeAttr(path.title)} flashcard review">
+        <div class="path-flashcard-review__halo" aria-hidden="true"></div>
+        <div class="path-flashcard-review__intro">
+          <p class="path-flashcard-review__eyebrow">Flashcard Review</p>
+          <h2 class="path-flashcard-review__title">Keep ${this._escapeHtml(path.shortTitle || path.title)} recall warm</h2>
+          <p class="path-flashcard-review__body">
+            Domain-tagged cards stay connected to this learning path. Run the due queue before exams, or use the full deck as a retention sweep between topics.
+          </p>
+        </div>
+        <div class="path-flashcard-review__metrics" aria-label="Domain flashcard statistics">
+          <div class="path-flashcard-review__metric">
+            <span>${stats.dueToday}</span>
+            <small>${dueLabel}</small>
+          </div>
+          <div class="path-flashcard-review__metric">
+            <span>${stats.totalCards}</span>
+            <small>Domain cards</small>
+          </div>
+          <div class="path-flashcard-review__metric">
+            <span>${stats.completion}%</span>
+            <small>${completionLabel}</small>
+          </div>
+        </div>
+        <button type="button" class="btn btn-secondary path-flashcard-review__btn" id="domain-flashcard-review-btn">
+          ${stats.dueToday > 0 ? 'Review Due Cards' : 'Launch Domain Flashcards'}
+        </button>
+      </section>
+    `;
+  }
+
   _bindPageActions(path, examState) {
     const scopeBtn = this.container?.querySelector('#final-exam-scope-btn');
-    if (!scopeBtn) return;
+    const flashcardBtn = this.container?.querySelector('#domain-flashcard-review-btn');
 
-    scopeBtn.addEventListener('click', () => {
+    scopeBtn?.addEventListener('click', () => {
       this._openFinalExamScope(path, examState);
     });
+
+    flashcardBtn?.addEventListener('click', () => {
+      this._launchDomainFlashcards(path);
+    });
+  }
+
+  _launchDomainFlashcards(path) {
+    const context = {
+      source: 'domain-landing',
+      domainId: path.id,
+      domainTitle: path.title,
+      returnRoute: `#/paths/${path.id}`,
+      limit: 30,
+    };
+
+    sessionStorage.setItem(FLASHCARD_LAUNCH_CONTEXT_KEY, JSON.stringify(context));
+    eventBus.emit('nav:route-change', { route: '/flashcards' });
   }
 
   _getFinalExamSummary(path, { finalUnlocked, finalPassed, finalExamAuthored }) {
@@ -324,6 +385,10 @@ class PathLanding {
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;');
+  }
+
+  _escapeAttr(value) {
+    return this._escapeHtml(value);
   }
 
   start() {}
