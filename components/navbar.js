@@ -121,6 +121,9 @@ class Navbar {
     this._searchKeydownHandler = null;
     this._profileDocClickHandler = null;
 
+    this._domainMatrixOpen = false;
+    this._expandedDomainId = null;
+
   }
 
   init() {
@@ -243,14 +246,12 @@ class Navbar {
 
   _renderSidebar() {
     const profile = stateManager.getState('userProfile');
-    const progress = stateManager.getState('userProgress');
-    const completed = new Set(progress.completedModules || []);
     const currentRoute = stateManager.getState('currentRoute') || '/';
 
-    let activePathId = null;
+    let activeModuleId = null;
     if (currentRoute.startsWith('/paths/')) {
       const parts = currentRoute.split('/').filter(Boolean);
-      activePathId = parts[1] || null;
+      activeModuleId = parts[2]?.split('?')[0] || null;
     }
 
     const coreHtml = CORE_NAV.map(item => `
@@ -270,42 +271,71 @@ class Navbar {
       </a>
     `).join('');
 
-    const pathsHtml = ALL_PATHS.map(path => {
+    const pathsHtml = ALL_PATHS.map((path, index) => {
       const isUnlocked = progressEngine.isPathUnlocked(path, ALL_PATHS);
       const pathDone = path.modules.filter(m => progressEngine.isTopicComplete(m.id)).length;
       const pathTotal = path.modules.length;
-      const isExpanded = activePathId === path.id;
+      const isExpanded = this._expandedDomainId === path.id;
       const isComplete = progressEngine.isPathComplete(path);
+      const progressPercent = pathTotal > 0 ? Math.round((pathDone / pathTotal) * 100) : 0;
+      const pathStatus = !isUnlocked ? 'locked' : isComplete ? 'complete' : pathDone > 0 ? 'progress' : 'ready';
+      const statusLabel = !isUnlocked ? 'Locked' : isComplete ? 'Complete' : pathDone > 0 ? 'In progress' : 'Ready';
+      const statusIcon = isUnlocked ? ICONS.check : ICONS.lock;
+      const prerequisiteTitle = (path.prerequisites || [])
+        .map(prereqId => ALL_PATHS.find(item => item.id === prereqId)?.shortTitle || prereqId)
+        .join(', ');
+      const lockMessage = prerequisiteTitle
+        ? `Complete ${prerequisiteTitle} to unlock this domain.`
+        : 'Complete earlier domains to unlock this domain.';
 
-      const dots = path.modules.map(mod =>
-        progressEngine.isTopicComplete(mod.id)
-          ? '<span class="progress-dot progress-dot--done"></span>'
-          : '<span class="progress-dot"></span>'
-      ).join('');
-
-      const modulesHtml = path.modules.map(mod => {
+      const modulesHtml = path.modules.map((mod, moduleIndex) => {
         const isDone = progressEngine.isTopicComplete(mod.id);
+        const moduleRoute = `/paths/${path.id}/${mod.id}`;
+        const isCurrent = activeModuleId === mod.id;
         return `
-          <a href="#/paths/${path.id}/${mod.id}" class="sidebar__nav-item sidebar__nav-item--sub" data-route="/paths/${path.id}/${mod.id}">
-            <span class="sidebar__status-dot ${isDone ? 'sidebar__status-dot--done' : ''}"></span>
-            <span class="command-nav-label">${mod.title}</span>
-            ${isDone ? '<span class="command-nav-meta">DONE</span>' : ''}
+          <a href="#${moduleRoute}" class="sidebar__nav-item sidebar__nav-item--sub sidebar-topic-link ${isDone ? 'is-complete' : ''} ${isCurrent ? 'is-current' : ''}" data-route="${moduleRoute}">
+            <span class="sidebar-topic-link__index">${escapeHtml(mod.code || String(moduleIndex + 1).padStart(2, '0'))}</span>
+            <span class="sidebar-topic-link__title">${escapeHtml(mod.title)}</span>
+            <span class="sidebar-topic-link__state" aria-hidden="true">${isDone ? ICONS.check : ''}</span>
           </a>
         `;
       }).join('');
 
       return `
-        <div class="sidebar__path-group ${!isUnlocked ? 'sidebar__path-group--locked' : ''}" data-path="${path.id}">
-          <div class="sidebar__path-header ${isExpanded ? 'is-expanded' : ''}" data-toggle-path="${path.id}">
-            <span class="sidebar__path-toggle">${isExpanded ? '▼' : '▶'}</span>
-            <span class="sidebar__icon" style="color:${path.color}">${ICONS[this._pickPathIcon(path.id)] || ICONS.network}</span>
-            <span class="sidebar__path-label">${path.title}</span>
-            ${!isUnlocked ? `<span class="sidebar__lock">${icon('lock', 'sidebar__path-state-icon')}</span>` : ''}
-            ${isComplete ? `<span class="sidebar__check">${icon('check', 'sidebar__path-state-icon')}</span>` : ''}
-            <span class="sidebar__dots">${dots}</span>
+        <div class="sidebar__path-group sidebar-domain sidebar-domain--${pathStatus} ${isExpanded ? 'is-expanded' : ''}" data-path="${escapeHtml(path.id)}" style="--domain-accent: ${escapeHtml(path.color || 'var(--color-primary)')}">
+          <div class="sidebar__path-header sidebar-domain-card ${isExpanded ? 'is-expanded' : ''}" data-toggle-path="${escapeHtml(path.id)}" role="button" tabindex="0" aria-expanded="${isExpanded ? 'true' : 'false'}" aria-label="${escapeHtml(path.title)}: ${statusLabel}, ${pathDone} of ${pathTotal} topics complete">
+            <span class="sidebar-domain-card__stripe" aria-hidden="true"></span>
+            <span class="sidebar-domain-card__orb" aria-hidden="true">
+              <span class="sidebar-domain-card__number">D${escapeHtml(path.examDomain || index + 1)}</span>
+            </span>
+            <span class="sidebar-domain-card__body">
+              <span class="sidebar-domain-card__topline">
+                <span class="sidebar-domain-card__title">${escapeHtml(path.shortTitle || path.title)}</span>
+                <span class="sidebar-domain-status sidebar-domain-status--${pathStatus}" title="${statusLabel}" aria-hidden="true">${statusIcon}</span>
+              </span>
+              <span class="sidebar-domain-card__meta">${path.examWeight}% exam · ${pathTotal} topics · ${path.estimatedHours}h</span>
+              <span class="sidebar-domain-progress" aria-hidden="true">
+                <span class="sidebar-domain-progress__bar" style="width: ${progressPercent}%"></span>
+              </span>
+            </span>
+            <span class="sidebar-domain-card__aside" aria-hidden="true">
+              <span class="sidebar-domain-card__progress">${pathDone}/${pathTotal}</span>
+              <span class="sidebar-domain-card__chevron">${isExpanded ? '−' : '+'}</span>
+            </span>
           </div>
-          <div class="sidebar__path-modules ${isExpanded ? 'is-expanded' : ''}" data-path-modules="${path.id}">
-            ${isUnlocked ? modulesHtml : ''}
+          <div class="sidebar__path-modules sidebar-domain-topics ${isExpanded ? 'is-expanded' : ''}" data-path-modules="${escapeHtml(path.id)}" aria-hidden="${isExpanded ? 'false' : 'true'}" ${isExpanded ? '' : 'hidden'}>
+            ${isUnlocked ? `
+              <a href="#/paths/${path.id}" class="sidebar-domain-overview" aria-label="Open ${escapeHtml(path.title)} overview">
+                <span>Open domain overview</span>
+                <span aria-hidden="true">↗</span>
+              </a>
+              ${modulesHtml}
+            ` : `
+              <div class="sidebar-domain-locked">
+                ${icon('lock', 'sidebar-domain-lock-icon')}
+                <span>${escapeHtml(lockMessage)}</span>
+              </div>
+            `}
           </div>
         </div>
       `;
@@ -326,7 +356,7 @@ class Navbar {
             </svg>
           </span>
           <span class="command-brand-copy">
-            <span class="command-brand-title">NetlearnHub</span>
+            <span class="command-brand-title">NETLEARNHUB</span>
             <span class="command-brand-subtitle">NETWORKING LEARNING PLATFORM</span>
           </span>
         </a>
@@ -338,9 +368,15 @@ class Navbar {
 
         <hr class="sidebar__divider" />
 
-        <div class="sidebar__section">
-          <div class="sidebar__section-label">Domain Matrix</div>
-          ${pathsHtml}
+        <div class="sidebar__section sidebar-domain-matrix ${this._domainMatrixOpen ? 'is-open' : ''}">
+          <button class="sidebar-domain-matrix__toggle" id="domain-matrix-toggle" type="button" aria-expanded="${this._domainMatrixOpen ? 'true' : 'false'}" aria-controls="domain-matrix-panel">
+            <span class="sidebar-domain-matrix__title">Domain Matrix</span>
+            <span class="sidebar-domain-matrix__meta">${ALL_PATHS.length} domains</span>
+            <span class="sidebar-domain-matrix__chevron" aria-hidden="true">${this._domainMatrixOpen ? '−' : '+'}</span>
+          </button>
+          <div id="domain-matrix-panel" class="sidebar-domain-matrix__panel ${this._domainMatrixOpen ? 'is-open' : ''}" ${this._domainMatrixOpen ? '' : 'hidden'}>
+            ${pathsHtml}
+          </div>
         </div>
 
         <hr class="sidebar__divider" />
@@ -360,15 +396,80 @@ class Navbar {
       </nav>
     `;
 
+    const matrixToggle = this._sidebarRoot.querySelector('#domain-matrix-toggle');
+    const matrixPanel = this._sidebarRoot.querySelector('#domain-matrix-panel');
+    matrixToggle?.addEventListener('click', () => {
+      this._domainMatrixOpen = !this._domainMatrixOpen;
+      matrixToggle.setAttribute('aria-expanded', this._domainMatrixOpen ? 'true' : 'false');
+      matrixPanel?.classList.toggle('is-open', this._domainMatrixOpen);
+      if (matrixPanel) matrixPanel.hidden = !this._domainMatrixOpen;
+
+      if (!this._domainMatrixOpen) {
+        this._expandedDomainId = null;
+        this._sidebarRoot.querySelectorAll('[data-toggle-path]').forEach(header => {
+          header.classList.remove('is-expanded');
+          header.closest('.sidebar-domain')?.classList.remove('is-expanded');
+          header.setAttribute('aria-expanded', 'false');
+          const chevron = header.querySelector('.sidebar-domain-card__chevron');
+          if (chevron) chevron.textContent = '+';
+        });
+
+        this._sidebarRoot.querySelectorAll('[data-path-modules]').forEach(modules => {
+          modules.classList.remove('is-expanded');
+          modules.hidden = true;
+          modules.setAttribute('aria-hidden', 'true');
+        });
+      }
+
+      const chevron = matrixToggle.querySelector('.sidebar-domain-matrix__chevron');
+      if (chevron) chevron.textContent = this._domainMatrixOpen ? '−' : '+';
+    });
+
     this._sidebarRoot.querySelectorAll('[data-toggle-path]').forEach(header => {
-      header.addEventListener('click', () => {
+      const togglePath = () => {
         const pathId = header.getAttribute('data-toggle-path');
         const modules = this._sidebarRoot.querySelector(`[data-path-modules="${pathId}"]`);
-        const expanded = header.classList.toggle('is-expanded');
-        modules?.classList.toggle('is-expanded', expanded);
+        const expanded = this._expandedDomainId !== pathId;
+        this._expandedDomainId = expanded ? pathId : null;
 
-        const toggle = header.querySelector('.sidebar__path-toggle');
-        if (toggle) toggle.textContent = expanded ? '▼' : '▶';
+        this._sidebarRoot.querySelectorAll('[data-toggle-path]').forEach(otherHeader => {
+          const otherPathId = otherHeader.getAttribute('data-toggle-path');
+          const isCurrent = expanded && otherPathId === pathId;
+          otherHeader.classList.toggle('is-expanded', isCurrent);
+          otherHeader.closest('.sidebar-domain')?.classList.toggle('is-expanded', isCurrent);
+          otherHeader.setAttribute('aria-expanded', isCurrent ? 'true' : 'false');
+
+          const otherModules = this._sidebarRoot.querySelector(`[data-path-modules="${otherPathId}"]`);
+          otherModules?.classList.toggle('is-expanded', isCurrent);
+          if (otherModules) {
+            otherModules.hidden = !isCurrent;
+            otherModules.setAttribute('aria-hidden', isCurrent ? 'false' : 'true');
+          }
+
+          const otherChevron = otherHeader.querySelector('.sidebar-domain-card__chevron');
+          if (otherChevron) otherChevron.textContent = isCurrent ? '−' : '+';
+        });
+
+        modules?.classList.toggle('is-expanded', expanded);
+        if (modules) {
+          modules.hidden = !expanded;
+          modules.setAttribute('aria-hidden', expanded ? 'false' : 'true');
+        }
+        header.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+
+        const chevron = header.querySelector('.sidebar-domain-card__chevron');
+        if (chevron) chevron.textContent = expanded ? '−' : '+';
+      };
+
+      header.addEventListener('click', event => {
+        if (event.target.closest('a')) return;
+        togglePath();
+      });
+
+      header.addEventListener('keydown', event => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        event.preventDefault();
+        togglePath();
       });
     });
   }
