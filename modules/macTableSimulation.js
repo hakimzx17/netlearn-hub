@@ -48,6 +48,8 @@ class MacTableSimulation {
     this._swPos    = {x:0,y:0};
     this._devPos   = {};
     this._onResize = null;
+    this._runToken = 0;
+    this._rafIds   = new Set();
   }
 
   // ── LIFECYCLE ──────────────────────────────────────────────────
@@ -69,7 +71,7 @@ class MacTableSimulation {
     // Replaces all RAF hacks and window resize listeners.
     this._resizeObs = new ResizeObserver(() => this._resizeCanvas());
     this._resizeObs.observe(this._canvas.parentElement);
-    this._setStatus('ℹ️',
+    this._setStatus('INFO',
       'Select <b>From</b> and <b>To</b> devices, then click <b>Send Frame</b> to start.',
       'cyan');
   }
@@ -77,6 +79,7 @@ class MacTableSimulation {
   start() {}
 
   reset() {
+    this._cancelAnimations();
     this._cam = {};
     this._busy = false;
     this._autoIdx = 0;
@@ -87,15 +90,17 @@ class MacTableSimulation {
     if (btn) btn.disabled = false;
     this._renderCamTable();
     this._drawScene({});
-    this._setStatus('ℹ️',
+    this._setStatus('INFO',
       'Select <b>From</b> and <b>To</b> devices, then click <b>Send Frame</b> to start.',
       'cyan');
   }
 
   destroy() {
+    this._cancelAnimations();
     this._stopAuto();
     if (this._ageTid)   { clearInterval(this._ageTid); this._ageTid = null; }
     if (this._resizeObs){ this._resizeObs.disconnect(); this._resizeObs = null; }
+    this._busy     = false;
     this.container = null;
     this._canvas   = null;
     this._ctx      = null;
@@ -108,7 +113,7 @@ class MacTableSimulation {
         <div class="module-header__breadcrumb">
           <span>Home</span> › <span>Simulations</span> › <span>MAC Table</span>
         </div>
-        <h1 class="module-header__title">🔀 Switch MAC Address Table Learning</h1>
+        <h1 class="module-header__title">SW Switch MAC Address Table Learning</h1>
         <p class="module-header__description">
           Watch how a Layer 2 switch learns device locations, builds the CAM table,
           and makes forwarding decisions in real time.
@@ -116,9 +121,9 @@ class MacTableSimulation {
       </div>
 
       <div class="mac-scbar">
-        <button class="mac-scbtn active" id="mac-sc-learnAll">📗 LEARN ALL</button>
-        <button class="mac-scbtn"        id="mac-sc-storm">🌀 UNKNOWN UNICAST STORM</button>
-        <button class="mac-scbtn"        id="mac-sc-aging">⏰ MAC AGING DEMO</button>
+        <button class="mac-scbtn active" id="mac-sc-learnAll">GUIDE LEARN ALL</button>
+        <button class="mac-scbtn"        id="mac-sc-storm">STORM UNKNOWN UNICAST STORM</button>
+        <button class="mac-scbtn"        id="mac-sc-aging">TIME MAC AGING DEMO</button>
       </div>
 
       <div class="mac-ctrlbar">
@@ -133,8 +138,8 @@ class MacTableSimulation {
           <option value="C">PC-C</option><option value="D">PC-D</option>
         </select>
         <div style="flex:1"></div>
-        <button class="mac-btn-primary" id="mac-btn-send">⚡ Send Frame</button>
-        <button class="mac-btn-ghost"   id="mac-btn-auto">⚡ Auto</button>
+        <button class="mac-btn-primary" id="mac-btn-send">FAST Send Frame</button>
+        <button class="mac-btn-ghost"   id="mac-btn-auto">FAST Auto</button>
         <button class="mac-btn-ghost"   id="mac-btn-reset">↺ Reset</button>
       </div>
 
@@ -143,7 +148,7 @@ class MacTableSimulation {
       </div>
 
       <div class="mac-status" id="mac-status" style="color:var(--color-cyan)">
-        <span id="mac-st-icon">ℹ️</span>
+        <span id="mac-st-icon">INFO</span>
         <span id="mac-st-msg">Ready.</span>
       </div>
 
@@ -160,7 +165,7 @@ class MacTableSimulation {
           </thead>
           <tbody id="mac-cam-body">
             <tr><td colspan="5"><div class="mac-empty">
-              <span class="mac-empty-ico">📭</span>Table Empty — Frame will be flooded
+              <span class="mac-empty-ico">EMPTY</span>Table Empty — Frame will be flooded
             </div></td></tr>
           </tbody>
         </table>
@@ -176,7 +181,7 @@ class MacTableSimulation {
       this._autoOn = !this._autoOn;
       const b = this._q('#mac-btn-auto');
       b.classList.toggle('active', this._autoOn);
-      b.textContent = this._autoOn ? '⏹ Stop' : '⚡ Auto';
+      b.textContent = this._autoOn ? 'STOP Stop' : 'FAST Auto';
       if (this._autoOn) this._autoStep();
       else { clearTimeout(this._autoTid); this._autoTid = null; }
     });
@@ -354,24 +359,45 @@ class MacTableSimulation {
   // ── PACKET ANIMATION ──────────────────────────────────────────
   _drawPkt(x,y,color){
     const c=this._ctx;
+    if(!c) return;
     c.save(); c.shadowColor=color; c.shadowBlur=14; c.fillStyle=color;
     c.beginPath(); c.arc(x,y,7,0,Math.PI*2); c.fill();
     c.shadowBlur=0; c.fillStyle='#000';
     c.beginPath(); c.arc(x,y,3,0,Math.PI*2); c.fill(); c.restore();
   }
 
+  _queueRaf(cb){
+    const id=requestAnimationFrame((ts)=>{
+      this._rafIds.delete(id);
+      cb(ts);
+    });
+    this._rafIds.add(id);
+    return id;
+  }
+
+  _cancelAnimations(){
+    this._runToken++;
+    this._rafIds.forEach(id=>cancelAnimationFrame(id));
+    this._rafIds.clear();
+  }
+
   // Single packet: drawScene(base) then overlay dot each frame
   _animPacket(from,to,color,baseScene){
     return new Promise(resolve=>{
+      const token=this._runToken;
       const t0=performance.now();
       const step=now=>{
+        if(token!==this._runToken || !this.container || !this._canvas || !this._ctx){
+          resolve();
+          return;
+        }
         const raw=Math.min((now-t0)/PKT_MS,1);
         const e=this._ease(raw);
         this._drawScene(baseScene);
         this._drawPkt(from.x+(to.x-from.x)*e, from.y+(to.y-from.y)*e, color);
-        if(raw<1) requestAnimationFrame(step); else resolve();
+        if(raw<1) this._queueRaf(step); else resolve();
       };
-      requestAnimationFrame(step);
+      this._queueRaf(step);
     });
   }
 
@@ -379,9 +405,14 @@ class MacTableSimulation {
   // then ALL N packet dots drawn on top. Prevents flicker.
   _animFlood(floodFrom){
     return new Promise(resolve=>{
+      const token=this._runToken;
       const targets=IDS.filter(id=>id!==floodFrom).map((id,i)=>({id,delay:i*80}));
       const t0=performance.now();
       const step=now=>{
+        if(token!==this._runToken || !this.container || !this._canvas || !this._ctx){
+          resolve();
+          return;
+        }
         const elapsed=now-t0;
         this._drawScene({floodFrom,swBusy:false}); // ONE render per frame
         let allDone=true;
@@ -395,9 +426,9 @@ class MacTableSimulation {
           const y=this._swPos.y+(this._devPos[t.id].y-this._swPos.y)*e;
           this._drawPkt(x,y,'#ffb800');
         });
-        if(!allDone) requestAnimationFrame(step); else resolve();
+        if(!allDone) this._queueRaf(step); else resolve();
       };
-      requestAnimationFrame(step);
+      this._queueRaf(step);
     });
   }
 
@@ -411,83 +442,95 @@ class MacTableSimulation {
   //
   async _doSend(srcId, dstId) {
     if(srcId===dstId){
-      this._setStatus('⚠️','<b>Invalid:</b> Source and destination must be different.','amber');
+      this._setStatus('WARN','<b>Invalid:</b> Source and destination must be different.','amber');
       return;
     }
+    const runToken=this._runToken;
+    const aborted=()=>runToken!==this._runToken || !this.container || !this._canvas || !this._ctx;
     const src=DEV[srcId], dst=DEV[dstId];
     this._busy=true;
-    this._q('#mac-btn-send').disabled=true;
+    const sendBtn=this._q('#mac-btn-send');
+    if(sendBtn) sendBtn.disabled=true;
+    try {
 
-    // PHASE 1: frame travels src → switch. Only src glows.
-    this._setStatus('📤',
-      `<b>${src.label}</b> sends frame out <span style="color:var(--color-warning)">${src.port}</span><br>
-       src <span style="color:${src.color}">${src.mac}</span>
-       &nbsp;→&nbsp; dst <span style="color:${dst.color}">${dst.mac}</span>`,
-      'cyan');
-    await this._animPacket(
-      this._devPos[srcId], this._swPos,
-      src.color,
-      { srcId }           // ← ONLY source lit; destination stays dark
-    );
-
-    // PHASE 2: switch reads source MAC, learns it
-    this._drawScene({ swBusy:true });
-    const isNew = this._learnMAC(src.mac, src.port, srcId);
-    this._setStatus(isNew?'🧠':'🔄',
-      isNew
-        ? `Switch reads <b>source MAC</b> → <span style="color:${src.color}">${src.mac}</span><br>
-           Not in CAM → <b>Learned</b> on <span style="color:var(--color-warning)">${src.port}</span>`
-        : `Source MAC <span style="color:${src.color}">${src.mac}</span> already known — refreshing timer.`,
-      'cyan');
-    await this._sleep(PAUSE_MS);
-
-    // PHASE 3: lookup destination
-    const dstEntry = this._cam[dst.mac];
-    if(dstEntry){
-      // 3a: KNOWN UNICAST — only destination glows; source goes idle
-      this._setStatus('🎯',
-        `<span style="color:${dst.color}">${dst.mac}</span>
-         → <b style="color:var(--color-success)">FOUND</b>
-         on <span style="color:var(--color-warning)">${dstEntry.port}</span><br>
-         Forwarding <b>only</b> to <b>${dst.label}</b> — all other ports silent.`,
-        'green');
+      // PHASE 1: frame travels src → switch. Only src glows.
+      this._setStatus('EXPORT',
+        `<b>${src.label}</b> sends frame out <span style="color:var(--color-warning)">${src.port}</span><br>
+         src <span style="color:${src.color}">${src.mac}</span>
+         &nbsp;→&nbsp; dst <span style="color:${dst.color}">${dst.mac}</span>`,
+        'cyan');
       await this._animPacket(
-        this._swPos, this._devPos[dstId],
-        dst.color,
-        { fwdId: dstId }  // ← ONLY destination lit; source now idle
+        this._devPos[srcId], this._swPos,
+        src.color,
+        { srcId }           // ← ONLY source lit; destination stays dark
       );
-      this._drawScene({ fwdId:dstId });
-      this._setStatus('✅',
-        `Delivered to <b>${dst.label}</b> (${dst.ip}).
-         <span style="color:var(--color-success)">✓ Unicast forwarded</span>`,
-        'green');
-      await this._sleep(PAUSE_MS);
+      if(aborted()) return;
 
-    } else {
-      // 3b: UNKNOWN UNICAST FLOOD — all non-src ports amber, single RAF loop
-      const targets=IDS.filter(id=>id!==srcId).map(id=>DEV[id].label).join(', ');
-      this._setStatus('🌊',
-        `<span style="color:${dst.color}">${dst.mac}</span>
-         → <b style="color:var(--color-warning)">NOT FOUND</b> in CAM<br>
-         Flooding ALL ports except ingress
-         <span style="color:${src.color}">${src.port}</span>
-         &nbsp;→&nbsp; ${targets}`,
-        'amber');
-      this._drawScene({ floodFrom:srcId, swBusy:true });
-      await this._sleep(180);
-      await this._animFlood(srcId);
-      this._drawScene({ floodFrom:srcId });
-      this._setStatus('📢',
-        `Flooded to <b>${targets}</b>.<br>
-         When <b>${dst.label}</b> replies, switch learns its MAC and flooding stops.`,
-        'amber');
+      // PHASE 2: switch reads source MAC, learns it
+      this._drawScene({ swBusy:true });
+      const isNew = this._learnMAC(src.mac, src.port, srcId);
+      this._setStatus(isNew?'LEARN':'CYCLE',
+        isNew
+          ? `Switch reads <b>source MAC</b> → <span style="color:${src.color}">${src.mac}</span><br>
+             Not in CAM → <b>Learned</b> on <span style="color:var(--color-warning)">${src.port}</span>`
+          : `Source MAC <span style="color:${src.color}">${src.mac}</span> already known — refreshing timer.`,
+        'cyan');
       await this._sleep(PAUSE_MS);
+      if(aborted()) return;
+
+      // PHASE 3: lookup destination
+      const dstEntry = this._cam[dst.mac];
+      if(dstEntry){
+        // 3a: KNOWN UNICAST — only destination glows; source goes idle
+        this._setStatus('FOCUS',
+          `<span style="color:${dst.color}">${dst.mac}</span>
+           → <b style="color:var(--color-success)">FOUND</b>
+           on <span style="color:var(--color-warning)">${dstEntry.port}</span><br>
+           Forwarding <b>only</b> to <b>${dst.label}</b> — all other ports silent.`,
+          'green');
+        await this._animPacket(
+          this._swPos, this._devPos[dstId],
+          dst.color,
+          { fwdId: dstId }  // ← ONLY destination lit; source now idle
+        );
+        if(aborted()) return;
+        this._drawScene({ fwdId:dstId });
+        this._setStatus('✅',
+          `Delivered to <b>${dst.label}</b> (${dst.ip}).
+           <span style="color:var(--color-success)">OK Unicast forwarded</span>`,
+          'green');
+        await this._sleep(PAUSE_MS);
+        if(aborted()) return;
+
+      } else {
+        // 3b: UNKNOWN UNICAST FLOOD — all non-src ports amber, single RAF loop
+        const targets=IDS.filter(id=>id!==srcId).map(id=>DEV[id].label).join(', ');
+        this._setStatus('FLOOD',
+          `<span style="color:${dst.color}">${dst.mac}</span>
+           → <b style="color:var(--color-warning)">NOT FOUND</b> in CAM<br>
+           Flooding ALL ports except ingress
+           <span style="color:${src.color}">${src.port}</span>
+           &nbsp;→&nbsp; ${targets}`,
+          'amber');
+        this._drawScene({ floodFrom:srcId, swBusy:true });
+        await this._sleep(180);
+        if(aborted()) return;
+        await this._animFlood(srcId);
+        if(aborted()) return;
+        this._drawScene({ floodFrom:srcId });
+        this._setStatus('BROADCAST',
+          `Flooded to <b>${targets}</b>.<br>
+           When <b>${dst.label}</b> replies, switch learns its MAC and flooding stops.`,
+          'amber');
+        await this._sleep(PAUSE_MS);
+      }
+
+      this._drawScene({});
+      this._renderCamTable();
+    } finally {
+      this._busy=false;
+      if(sendBtn) sendBtn.disabled=false;
     }
-
-    this._drawScene({});
-    this._renderCamTable();
-    this._busy=false;
-    this._q('#mac-btn-send').disabled=false;
   }
 
   // ── CAM TABLE ────────────────────────────────────────────────
@@ -502,7 +545,7 @@ class MacTableSimulation {
       const done=new Set(prog.completedModules||[]);
       done.add('/mac-table');
       stateManager.mergeState('userProgress',{ completedModules:[...done] });
-      showToast('🎉 All MAC addresses learned! CAM table complete!','success');
+      showToast('DONE All MAC addresses learned! CAM table complete!','success');
     }
     return isNew;
   }
@@ -513,7 +556,7 @@ class MacTableSimulation {
     this._q('#mac-cam-count').textContent=entries.length+' / 4 learned';
     if(!entries.length){
       this._q('#mac-cam-body').innerHTML=
-        '<tr><td colspan="5"><div class="mac-empty"><span class="mac-empty-ico">📭</span>Table Empty — Frame will be flooded</div></td></tr>';
+        '<tr><td colspan="5"><div class="mac-empty"><span class="mac-empty-ico">EMPTY</span>Table Empty — Frame will be flooded</div></td></tr>';
       return;
     }
     const k=mac=>mac.replace(/:/g,'');
@@ -554,7 +597,7 @@ class MacTableSimulation {
       for(const mac in this._cam){
         if(now>=this._cam[mac].expires){
           const d=DEV[this._cam[mac].devId];
-          this._setStatus('⏰',
+          this._setStatus('TIME',
             `MAC <span style="color:var(--color-warning)">${mac}</span> (<b>${d.label}</b>) aged out — removed.`,
             'amber');
           delete this._cam[mac]; changed=true;
@@ -584,7 +627,7 @@ class MacTableSimulation {
     this._autoOn=false; clearTimeout(this._autoTid); this._autoTid=null;
     if(!this.container) return;
     const b=this._q('#mac-btn-auto');
-    if(b){b.classList.remove('active');b.textContent='⚡ Auto';}
+    if(b){b.classList.remove('active');b.textContent='FAST Auto';}
   }
 
   // ── SCENARIO ─────────────────────────────────────────────────
@@ -595,9 +638,9 @@ class MacTableSimulation {
     });
     this.reset();
     const M={
-      learnAll:['📗','Scenario: <b>Learn All</b> — Fill the CAM table by sending frames between all device pairs.','cyan'],
-      storm:   ['🌀','Scenario: <b>Unknown Unicast Storm</b> — CAM cleared! Every frame floods until MACs are learned.','amber'],
-      aging:   ['⏰',`Scenario: <b>MAC Aging Demo</b> — Entries expire after ${AGING_MS/1000}s. Watch them age out.`,'amber'],
+      learnAll:['GUIDE','Scenario: <b>Learn All</b> — Fill the CAM table by sending frames between all device pairs.','cyan'],
+      storm:   ['STORM','Scenario: <b>Unknown Unicast Storm</b> — CAM cleared! Every frame floods until MACs are learned.','amber'],
+      aging:   ['TIME',`Scenario: <b>MAC Aging Demo</b> — Entries expire after ${AGING_MS/1000}s. Watch them age out.`,'amber'],
     };
     this._setStatus(...M[s]);
   }

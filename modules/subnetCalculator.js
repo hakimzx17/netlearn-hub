@@ -24,7 +24,7 @@ import {
   calculateSubnet, getSubnetSteps, divideSubnet,
 } from '../utils/networkMath.js';
 
-import { escapeHtml } from '../utils/helperFunctions.js';
+import { escapeHtml, resolveInjectedCssTokens } from '../utils/helperFunctions.js';
 
 // ── Preset examples for quick exploration ─────────────────────────────
 const PRESETS = [
@@ -186,17 +186,17 @@ class SubnetCalculator {
 
     // Validate
     if (!isValidIP(ip)) {
-      if (validation) validation.innerHTML = `<span style="color:var(--color-error);">✕ Invalid IPv4 address</span>`;
+      if (validation) validation.innerHTML = `<span style="color:var(--color-error);">X Invalid IPv4 address</span>`;
       if (results) results.innerHTML = '';
       return;
     }
     if (isNaN(prefix) || prefix < 0 || prefix > 32) {
-      if (validation) validation.innerHTML = `<span style="color:var(--color-error);">✕ Prefix must be 0–32</span>`;
+      if (validation) validation.innerHTML = `<span style="color:var(--color-error);">X Prefix must be 0–32</span>`;
       if (results) results.innerHTML = '';
       return;
     }
 
-    if (validation) validation.innerHTML = `<span style="color:var(--color-success);">✓ Valid input</span>`;
+    if (validation) validation.innerHTML = `<span style="color:var(--color-success);">OK Valid input</span>`;
 
     this._ip     = ip;
     this._prefix = prefix;
@@ -205,7 +205,7 @@ class SubnetCalculator {
     try {
       info = calculateSubnet(ip, prefix);
     } catch (e) {
-      if (validation) validation.innerHTML = `<span style="color:var(--color-error);">✕ ${escapeHtml(e.message)}</span>`;
+      if (validation) validation.innerHTML = `<span style="color:var(--color-error);">X ${escapeHtml(e.message)}</span>`;
       return;
     }
 
@@ -561,7 +561,7 @@ class SubnetCalculator {
     if (document.getElementById('binary-display-styles')) return;
     const style = document.createElement('style');
     style.id = 'binary-display-styles';
-    style.textContent = `
+    style.textContent = resolveInjectedCssTokens(`
       .binary-display {
         font-family: var(--font-mono);
         font-size: 13px;
@@ -614,7 +614,7 @@ class SubnetCalculator {
         0%, 100% { box-shadow: 0 0 0 0 rgba(255,184,0,0.4); }
         50% { box-shadow: 0 0 0 4px rgba(255,184,0,0); }
       }
-    `;
+    `);
     document.head.appendChild(style);
   }
 

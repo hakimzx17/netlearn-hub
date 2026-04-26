@@ -1,0 +1,16 @@
+import { q } from './helpers.js';
+
+const catalystCenterDnacBank = [
+  q('d6-6-5-q1', 'What is Catalyst Center best understood as?', ['A campus-oriented controller and automation platform', 'A routing protocol', 'A DHCP replacement', 'A file transfer service'], 0, 'easy', 'Catalyst Center is a campus-oriented controller and automation platform.'),
+  q('d6-6-5-q2', 'What earlier Cisco product name is strongly associated with Catalyst Center in this curriculum context?', ['DNA Center', 'Prime Telnet', 'NetFlow Server', 'CallManager'], 0, 'easy', 'Catalyst Center is presented as the platform formerly known as DNA Center.'),
+  q('d6-6-5-q3', 'Which Cisco architectural family is Catalyst Center closely associated with?', ['SD-Access', 'ACI', 'RIP', 'GRE'], 0, 'easy', 'Catalyst Center is closely tied to SD-Access.'),
+  q('d6-6-5-q4', 'What does assurance in Catalyst Center mainly refer to?', ['Visibility and analytics about network health and policy behavior', 'A password hashing method', 'A DHCP relay mode', 'A STP timer'], 0, 'medium', 'Assurance is about visibility, analytics, and network health insight.'),
+  q('d6-6-5-q5', 'Which capability is not the only role of Catalyst Center?', ['Provisioning', 'Design and policy', 'Assurance', 'All of these are part of the platform'], 3, 'medium', 'Catalyst Center is broader than only provisioning; it also includes design/policy and assurance.'),
+  q('d6-6-5-q6', 'Why is Catalyst Center more than just a GUI replacement for CLI?', ['It acts as a controller and management layer for automation, policy, and assurance', 'Because it removes routing', 'Because it only stores logs', 'Because it works only offline'], 0, 'medium', 'Catalyst Center is a controller and operational platform, not just a prettier command interface.'),
+  q('d6-6-5-q7', 'What role do northbound APIs play for Catalyst Center?', ['They expose higher-level integration toward applications', 'They connect only to switches', 'They replace DNS', 'They are the same as southbound interfaces'], 0, 'medium', 'Northbound APIs face applications and integrations from the controller perspective.'),
+  q('d6-6-5-q8', 'What role do southbound relationships play for Catalyst Center?', ['They connect the platform toward the infrastructure it manages', 'They are only for wireless guest users', 'They disable assurance', 'They remove policy design'], 0, 'medium', 'Southbound relationships connect the controller toward the infrastructure it manages.'),
+  q('d6-6-5-q9', 'Why is AI/analytics mentioned with Catalyst Center?', ['Because the platform aims to make operations more predictive and less reactive', 'Because AI replaces all administrators', 'Because AI is required for DHCP', 'Because AI is only for data centers'], 0, 'medium', 'Analytics and AI are part of the platform’s assurance and predictive-operations value.'),
+  q('d6-6-5-q10', 'What is the best summary of Catalyst Center at the CCNA level?', ['A central campus automation, policy, and assurance platform', 'A standalone packet sniffer', 'A firewall replacement', 'A WAN-only transport tool'], 0, 'hard', 'That is the clearest CCNA-level summary of Catalyst Center’s role.'),
+];
+
+export default catalystCenterDnacBank;

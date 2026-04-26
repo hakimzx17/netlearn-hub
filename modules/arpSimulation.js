@@ -685,7 +685,7 @@ export function createArpSimulator() {
             <!-- Controls -->
             <div class="arp-controls">
               <button class="arp-btn arp-btn-primary"  id="arp-btn-step">▶ STEP</button>
-              <button class="arp-btn arp-btn-secondary" id="arp-btn-auto">⚡ AUTO PLAY</button>
+              <button class="arp-btn arp-btn-secondary" id="arp-btn-auto">FAST AUTO PLAY</button>
               <button class="arp-btn arp-btn-danger"   id="arp-btn-reset">↺ RESET</button>
 
               <div class="arp-speed-row">
@@ -1325,7 +1325,7 @@ export function createArpSimulator() {
     if (_autoTimer) {
       clearInterval(_autoTimer);
       _autoTimer = null;
-      _btnAuto.textContent = '⚡ AUTO PLAY';
+      _btnAuto.textContent = 'FAST AUTO PLAY';
       _btnAuto.classList.remove('arp-btn-primary');
       _btnAuto.classList.add('arp-btn-secondary');
     }
@@ -1425,18 +1425,18 @@ export function createArpSimulator() {
       if (_autoTimer) {
         clearInterval(_autoTimer);
         _autoTimer = null;
-        _btnAuto.textContent = '⚡ AUTO PLAY';
+        _btnAuto.textContent = 'FAST AUTO PLAY';
         _btnAuto.classList.remove('arp-btn-primary');
         _btnAuto.classList.add('arp-btn-secondary');
       } else {
-        _btnAuto.textContent = '⏸ PAUSE';
+        _btnAuto.textContent = 'PAUSE PAUSE';
         _btnAuto.classList.add('arp-btn-primary');
         _btnAuto.classList.remove('arp-btn-secondary');
         _autoTimer = setInterval(() => {
           if (_stepIndex >= currentSteps.length - 1) {
             clearInterval(_autoTimer);
             _autoTimer = null;
-            _btnAuto.textContent = '⚡ AUTO PLAY';
+            _btnAuto.textContent = 'FAST AUTO PLAY';
             _btnAuto.classList.remove('arp-btn-primary');
             _btnAuto.classList.add('arp-btn-secondary');
           } else {
@@ -1462,7 +1462,7 @@ export function createArpSimulator() {
           if (_stepIndex >= SCENARIO_STEPS.length - 1) {
             clearInterval(_autoTimer);
             _autoTimer = null;
-            _btnAuto.textContent = '⚡ AUTO PLAY';
+            _btnAuto.textContent = 'FAST AUTO PLAY';
             _btnAuto.classList.remove('arp-btn-primary');
             _btnAuto.classList.add('arp-btn-secondary');
           } else {

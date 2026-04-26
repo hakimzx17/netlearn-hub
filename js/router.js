@@ -27,6 +27,16 @@ import { stateManager } from './stateManager.js';
  */
 const ROUTES = {
   '/': () => import('../modules/dashboard.js'),
+
+  // ── Learning Paths (new) ────────────────────────────
+  '/paths':   () => import('../modules/paths/PathsOverview.js'),
+  // Pattern routes for /paths/:pathId and /paths/:pathId/:moduleId
+  // are handled by the _resolveRoute method below
+
+  // ── Simulations Hub (new) ───────────────────────────
+  '/simulations': () => import('../modules/simulations/SimulationsHub.js'),
+
+  // ── Existing simulation/tool routes ─────────────────
   '/ipv4-header': () => import('../modules/ipv4HeaderGame.js'),
   '/ethernet-frame': () => import('../modules/ethernetFrameGame.js'),
   '/osi-tcpip': () => import('../modules/osiTcpipVisualizer.js'),
@@ -41,7 +51,31 @@ const ROUTES = {
   '/subnet-calculator': () => import('../modules/subnetCalculator.js'),
   '/exam': () => import('../modules/examModeEngine.js'),
   '/resources': () => import('../modules/resourceLibrary.js'),
+  '/flashcards': () => import('../modules/resourceLibrary.js'),
 };
+
+/**
+ * Resolve pattern routes (e.g. /paths/fundamentals/osi-model).
+ * Returns a loader function or null if no match.
+ */
+function _resolvePatternRoute(routeKey) {
+  const parts = routeKey.split('/').filter(Boolean);
+
+  // /paths/:pathId/:moduleId → LessonPage
+  if (parts[0] === 'paths' && parts.length === 3) {
+    return () => import('../modules/paths/LessonPage.js');
+  }
+  // /paths/:pathId → PathLanding
+  if (parts[0] === 'paths' && parts.length === 2) {
+    return () => import('../modules/paths/PathLanding.js');
+  }
+  // /exam/domain-final/:domainId → ExamModeEngine
+  if (parts[0] === 'exam' && parts[1] === 'domain-final' && parts.length === 3) {
+    return () => import('../modules/examModeEngine.js');
+  }
+
+  return null;
+}
 
 class Router {
   constructor() {
@@ -121,8 +155,11 @@ class Router {
       // 2. Show loading state in view root
       this._showLoading();
 
-      // 3. Resolve route — fall back to 404 if not found
-      const loader = ROUTES[routeKey];
+      // 3. Resolve route — try exact match, then pattern match, then 404
+      let loader = ROUTES[routeKey];
+      if (!loader) {
+        loader = _resolvePatternRoute(routeKey);
+      }
       if (!loader) {
         this._showNotFound(routeKey);
         this._isNavigating = false;
@@ -263,7 +300,7 @@ class Router {
     this._viewRoot.innerHTML = `
       <div class="loading-screen">
         <div style="text-align:center; padding: 2rem;">
-          <p style="font-size:3rem; margin-bottom:1rem;">⚠️</p>
+          <p style="font-size:3rem; margin-bottom:1rem;">WARN</p>
           <h2 style="margin-bottom:0.5rem; color:var(--color-error)">Module Load Error</h2>
           <p class="text-secondary"></p>
           <a href="#/" class="btn btn-ghost" style="margin-top:1.5rem; display:inline-flex;">

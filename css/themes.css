@@ -461,7 +461,7 @@
 
 /* ── Sidebar completion dots ─────────────────────────── */
 .sidebar__nav-item[data-completed='true']::after {
-  content: '✓';
+  content: '✅';
   margin-left: auto;
   font-size: 10px;
   color: var(--color-success);

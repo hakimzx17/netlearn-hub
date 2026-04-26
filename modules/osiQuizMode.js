@@ -9,18 +9,24 @@
  */
 
 import OSI_QUIZ_BANK from '../data/osiQuizBank.js';
+import { escapeHtml } from '../utils/helperFunctions.js';
+import { renderTokenIcon } from '../utils/tokenIcons.js';
 
 /* ── Spaced-repetition intervals (in number of questions before retry) ── */
 const SR_INTERVALS = [1, 3, 5, 8];
 
 /* ── Tier labels & colors ── */
 const TIER_META = {
-    1: { label: 'Fundamentals', color: '#4FC3F7', icon: '🌱' },
-    2: { label: 'Layer Functions', color: '#81C784', icon: '📗' },
-    3: { label: 'Protocol Knowledge', color: '#FFB74D', icon: '⚡' },
-    4: { label: 'Advanced Concepts', color: '#E57373', icon: '🔥' },
-    5: { label: 'Expert Level', color: '#CE93D8', icon: '💎' },
+    1: { label: 'Fundamentals', color: '#4FC3F7', icon: 'LEARN' },
+    2: { label: 'Layer Functions', color: '#81C784', icon: 'FOCUS' },
+    3: { label: 'Protocol Knowledge', color: '#FFB74D', icon: 'FAST' },
+    4: { label: 'Advanced Concepts', color: '#E57373', icon: 'HOT' },
+    5: { label: 'Expert Level', color: '#CE93D8', icon: 'PASS' },
 };
+
+function renderIconLabel(token, label, className = 'learning-token-icon') {
+    return `${renderTokenIcon(token, className)}<span>${label}</span>`;
+}
 
 export class OsiQuizMode {
     constructor(containerEl, onClose) {
@@ -121,7 +127,7 @@ export class OsiQuizMode {
           <!-- Top Bar -->
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
             <div style="display:flex; align-items:center; gap:0.75rem;">
-              <span style="font-size:1.5rem;">${tm.icon}</span>
+              <span style="font-size:1.5rem; display:inline-flex; align-items:center;">${renderTokenIcon(tm.icon)}</span>
               <div>
                 <div style="font-size:0.75rem; text-transform:uppercase; letter-spacing:0.1em; color:${tm.color}; font-weight:700;">Tier ${this._currentTier}</div>
                 <div style="font-size:1rem; font-weight:700; color:var(--color-text-primary);">${tm.label}</div>
@@ -132,7 +138,7 @@ export class OsiQuizMode {
               color:var(--color-text-muted); font-size:1.2rem; width:36px; height:36px;
               border-radius:8px; cursor:pointer; display:flex; align-items:center; justify-content:center;
               transition:all 0.2s;
-            " onmouseover="this.style.background='rgba(255,60,60,0.2)';this.style.color='#ff6b6b'" onmouseout="this.style.background='rgba(255,255,255,0.06)';this.style.color='var(--color-text-muted)'">✕</button>
+            " onmouseover="this.style.background='rgba(255,60,60,0.2)';this.style.color='#ff6b6b'" onmouseout="this.style.background='rgba(255,255,255,0.06)';this.style.color='var(--color-text-muted)'">${renderTokenIcon('X')}</button>
           </div>
 
           <!-- Stats Row -->
@@ -143,7 +149,7 @@ export class OsiQuizMode {
             </div>
             <div style="flex:1; min-width:80px; background:rgba(0,0,0,0.25); border-radius:8px; padding:0.6rem 0.8rem; text-align:center;">
               <div style="font-size:0.65rem; text-transform:uppercase; color:var(--color-text-muted); letter-spacing:0.1em;">Streak</div>
-              <div style="font-size:1.3rem; font-weight:800; color:${this._streak >= 3 ? '#FFB74D' : '#81C784'};">🔥 ${this._streak}</div>
+              <div style="font-size:1.3rem; font-weight:800; color:${this._streak >= 3 ? '#FFB74D' : '#81C784'}; display:inline-flex; align-items:center; gap:0.35rem;">${renderIconLabel('HOT', this._streak)}</div>
             </div>
             <div style="flex:1; min-width:80px; background:rgba(0,0,0,0.25); border-radius:8px; padding:0.6rem 0.8rem; text-align:center;">
               <div style="font-size:0.65rem; text-transform:uppercase; color:var(--color-text-muted); letter-spacing:0.1em;">Question</div>
@@ -158,7 +164,7 @@ export class OsiQuizMode {
           <!-- Timer Bar -->
           <div style="margin-bottom:1.5rem;">
             <div style="display:flex; justify-content:space-between; margin-bottom:0.4rem;">
-              <span style="font-size:0.75rem; color:var(--color-text-muted); font-weight:600;">⏱ TIME</span>
+              <span style="font-size:0.75rem; color:var(--color-text-muted); font-weight:600; display:inline-flex; align-items:center; gap:0.35rem;">${renderIconLabel('TIME', 'Time')}</span>
               <span style="font-size:0.85rem; font-weight:800; color:${timerColor}; font-family:var(--font-mono);">${this._timerSeconds}s</span>
             </div>
             <div style="height:6px; background:rgba(255,255,255,0.06); border-radius:99px; overflow:hidden;">
@@ -171,7 +177,7 @@ export class OsiQuizMode {
 
           ${this._currentQuestion._srItem ? `
             <div style="background:rgba(206,147,216,0.1); border:1px solid rgba(206,147,216,0.3); border-radius:8px; padding:0.6rem 0.8rem; margin-bottom:1rem; font-size:0.8rem; color:#CE93D8; display:flex; align-items:center; gap:0.5rem;">
-              <span>🔄</span> <strong>Spaced Repetition:</strong> You missed this before — try again!
+              <span style="display:inline-flex; align-items:center; gap:0.35rem;">${renderIconLabel('CYCLE', 'Spaced Repetition:')}</span> <strong>You missed this before — try again!</strong>
             </div>
           ` : ''}
 
@@ -208,7 +214,7 @@ export class OsiQuizMode {
           <!-- Action Buttons -->
           <div style="display:flex; gap:0.75rem; justify-content:flex-end;">
             <button id="quiz-submit-btn" class="btn btn-primary" style="padding:0.6rem 1.5rem; display:none; border-radius:10px;">
-              ✓ Submit Answer
+              ${renderIconLabel('OK', 'Submit Answer')}
             </button>
             <button id="quiz-next-btn" class="btn btn-primary" style="padding:0.6rem 1.5rem; display:none; border-radius:10px;">
               Next Question →
@@ -257,7 +263,7 @@ export class OsiQuizMode {
           box-shadow: 0 0 60px rgba(0,206,209,0.08), 0 25px 50px rgba(0,0,0,0.5);
         ">
           <div style="text-align:center; margin-bottom:2rem;">
-            <div style="font-size:3rem; margin-bottom:0.5rem;">${pct >= 80 ? '🏆' : pct >= 60 ? '👏' : '📚'}</div>
+            <div style="font-size:3rem; margin-bottom:0.5rem; display:flex; justify-content:center;">${renderTokenIcon(pct >= 80 ? 'PASS' : pct >= 60 ? 'FOCUS' : 'LEARN')}</div>
             <h2 style="margin:0 0 0.25rem 0; font-size:1.5rem; color:${gradeColor};">${gradeLabel}</h2>
             <p style="color:var(--color-text-muted); margin:0; font-size:0.9rem;">Quiz Complete — Here are your results</p>
           </div>
@@ -283,11 +289,11 @@ export class OsiQuizMode {
             </div>
             <div style="background:rgba(0,0,0,0.25); border-radius:8px; padding:0.75rem; text-align:center;">
               <div style="font-size:0.65rem; text-transform:uppercase; color:var(--color-text-muted); letter-spacing:0.1em;">Best Streak</div>
-              <div style="font-size:1.3rem; font-weight:800; color:#FFB74D;">🔥 ${this._bestStreak}</div>
+              <div style="font-size:1.3rem; font-weight:800; color:#FFB74D; display:inline-flex; align-items:center; gap:0.35rem;">${renderIconLabel('HOT', this._bestStreak)}</div>
             </div>
             <div style="background:rgba(0,0,0,0.25); border-radius:8px; padding:0.75rem; text-align:center;">
               <div style="font-size:0.65rem; text-transform:uppercase; color:var(--color-text-muted); letter-spacing:0.1em;">Max Tier</div>
-              <div style="font-size:1.3rem; font-weight:800; color:${TIER_META[this._currentTier].color};">${TIER_META[this._currentTier].icon} ${this._currentTier}</div>
+              <div style="font-size:1.3rem; font-weight:800; color:${TIER_META[this._currentTier].color}; display:inline-flex; align-items:center; gap:0.35rem;">${renderIconLabel(TIER_META[this._currentTier].icon, this._currentTier)}</div>
             </div>
           </div>
 
@@ -299,7 +305,7 @@ export class OsiQuizMode {
             const tc = TIER_META[tier].color;
             return `
                 <div style="display:flex; align-items:center; gap:0.75rem; padding:0.4rem 0;">
-                  <span style="font-size:0.85rem; min-width:100px; color:${tc}; font-weight:600;">${TIER_META[tier].icon} Tier ${tier}</span>
+                  <span style="font-size:0.85rem; min-width:100px; color:${tc}; font-weight:600; display:inline-flex; align-items:center; gap:0.35rem;">${renderIconLabel(TIER_META[tier].icon, `Tier ${tier}`)}</span>
                   <div style="flex:1; height:8px; background:rgba(255,255,255,0.06); border-radius:99px; overflow:hidden;">
                     <div style="height:100%; width:${tp}%; background:${tc}; border-radius:99px;"></div>
                   </div>
@@ -311,7 +317,7 @@ export class OsiQuizMode {
 
           ${reviewItems.length > 0 ? `
             <div style="margin-bottom:1.5rem; background:rgba(229,115,115,0.08); border:1px solid rgba(229,115,115,0.2); border-radius:10px; padding:1rem;">
-              <div style="font-size:0.8rem; text-transform:uppercase; color:#E57373; margin-bottom:0.6rem; font-weight:700; letter-spacing:0.1em;">📌 Topics to Review</div>
+              <div style="font-size:0.8rem; text-transform:uppercase; color:#E57373; margin-bottom:0.6rem; font-weight:700; letter-spacing:0.1em; display:inline-flex; align-items:center; gap:0.35rem;">${renderIconLabel('WARN', 'Topics to Review')}</div>
               ${reviewItems.map(q => `
                 <div style="padding:0.4rem 0; border-bottom:1px solid rgba(255,255,255,0.04); font-size:0.85rem; color:var(--color-text-secondary);">
                   • ${q.question}
@@ -320,13 +326,13 @@ export class OsiQuizMode {
             </div>
           ` : `
             <div style="margin-bottom:1.5rem; background:rgba(129,199,132,0.08); border:1px solid rgba(129,199,132,0.2); border-radius:10px; padding:1rem; text-align:center;">
-              <span style="font-size:0.9rem; color:#81C784; font-weight:600;">✅ No items left to review — excellent memory!</span>
+              <span style="font-size:0.9rem; color:#81C784; font-weight:600; display:inline-flex; align-items:center; gap:0.35rem;">${renderIconLabel('OK', 'No items left to review — excellent memory!')}</span>
             </div>
           `}
 
           <div style="display:flex; gap:0.75rem; justify-content:center;">
-            <button id="quiz-retry-btn" class="btn btn-primary" style="padding:0.7rem 2rem; border-radius:10px;">🔄 Try Again</button>
-            <button id="quiz-close-final" class="btn btn-ghost" style="padding:0.7rem 2rem; border-radius:10px; border-color:rgba(255,255,255,0.15);">✕ Close</button>
+            <button id="quiz-retry-btn" class="btn btn-primary" style="padding:0.7rem 2rem; border-radius:10px;">${renderIconLabel('CYCLE', 'Try Again')}</button>
+            <button id="quiz-close-final" class="btn btn-ghost" style="padding:0.7rem 2rem; border-radius:10px; border-color:rgba(255,255,255,0.15);">${renderIconLabel('X', 'Close')}</button>
           </div>
         </div>
       </div>
@@ -541,13 +547,13 @@ export class OsiQuizMode {
                 btn.style.borderColor = '#81C784';
                 btn.querySelector('span:first-child').style.background = '#81C784';
                 btn.querySelector('span:first-child').style.color = '#000';
-                btn.querySelector('span:first-child').textContent = '✓';
+                btn.querySelector('span:first-child').textContent = '✅';
             } else if (idx === this._selectedAnswer && !isCorrect) {
                 btn.style.background = 'rgba(229,115,115,0.15)';
                 btn.style.borderColor = '#E57373';
                 btn.querySelector('span:first-child').style.background = '#E57373';
                 btn.querySelector('span:first-child').style.color = '#000';
-                btn.querySelector('span:first-child').textContent = '✕';
+                btn.querySelector('span:first-child').textContent = '❌';
             } else {
                 btn.style.opacity = '0.4';
             }
@@ -555,27 +561,69 @@ export class OsiQuizMode {
 
         // Show feedback
         if (feedbackEl) {
-            const bgColor = isCorrect ? 'rgba(129,199,132,0.1)' : 'rgba(229,115,115,0.1)';
-            const borderColor = isCorrect ? '#81C784' : '#E57373';
-            const label = isTimeout ? '⏱ Time\'s Up!' : isCorrect ? '✅ Correct!' : '❌ Incorrect';
             const tierChangeMsg = isCorrect && this._streak % 2 === 0 && this._currentTier <= 5
                 ? `<div style="margin-top:0.5rem; color:#CE93D8; font-size:0.85rem;">⬆ Difficulty increased to <strong>Tier ${this._currentTier}</strong></div>`
                 : !isCorrect && this._currentTier >= 1
-                    ? `<div style="margin-top:0.5rem; color:#FFB74D; font-size:0.85rem;">🔄 This question will reappear via spaced repetition</div>`
+                    ? `<div style="margin-top:0.5rem; color:#FFB74D; font-size:0.85rem; display:inline-flex; align-items:center; gap:0.35rem;">${renderIconLabel('CYCLE', 'This question will reappear via spaced repetition')}</div>`
                     : '';
+
+            // If correct, just show a brief success message
+            if (isCorrect && !isTimeout) {
+                feedbackEl.style.display = 'block';
+                feedbackEl.innerHTML = `
+                    <div style="background:rgba(129,199,132,0.1); border:1px solid #81C784; border-radius:10px; padding:1rem;">
+                        <div style="font-weight:700; color:#81C784; font-size:0.95rem; display:inline-flex; align-items:center; gap:0.35rem;">${renderIconLabel('OK', 'Correct!')}</div>
+                        ${tierChangeMsg}
+                    </div>
+                `;
+                return;
+            }
+
+            // If incorrect or timeout, show what went wrong and the correct answer
+            const correctLetter = String.fromCharCode(65 + q.correct);
+            const correctAnswer = q.options[q.correct];
+            
+            let feedbackContent = '';
+            
+            if (isTimeout) {
+                feedbackContent = `
+                    <div style="font-weight:700; color:#FFB74D; font-size:0.95rem; margin-bottom:0.5rem; display:inline-flex; align-items:center; gap:0.35rem;">${renderIconLabel('TIME', "Time's Up!")}</div>
+                    <div style="color:var(--color-text-secondary); font-size:0.85rem; line-height:1.5; margin-bottom:0.5rem;">
+                        The correct answer was <strong style="color:#81C784;">${correctLetter}: ${escapeHtml(correctAnswer)}</strong>
+                    </div>
+                `;
+            } else {
+                const selectedLetter = String.fromCharCode(65 + this._selectedAnswer);
+                const selectedAnswer = q.options[this._selectedAnswer];
+                
+                feedbackContent = `
+                    <div style="font-weight:700; color:#E57373; font-size:0.95rem; margin-bottom:0.5rem; display:inline-flex; align-items:center; gap:0.35rem;">${renderIconLabel('X', 'Incorrect')}</div>
+                    <div style="color:var(--color-text-secondary); font-size:0.85rem; line-height:1.5; margin-bottom:0.5rem;">
+                        You selected <strong style="color:#E57373;">${selectedLetter}: ${escapeHtml(selectedAnswer)}</strong>
+                    </div>
+                    <div style="color:var(--color-text-secondary); font-size:0.85rem; line-height:1.5;">
+                        The correct answer is <strong style="color:#81C784;">${correctLetter}: ${escapeHtml(correctAnswer)}</strong>
+                    </div>
+                `;
+            }
+
+            // Add the explanation for why the correct answer is correct
+            if (q.explanation) {
+                feedbackContent += `
+                    <div style="color:var(--color-text-secondary); font-size:0.85rem; line-height:1.5; margin-top:0.5rem; padding-top:0.5rem; border-top:1px solid rgba(255,255,255,0.1);">
+                        ${escapeHtml(q.explanation)}
+                    </div>
+                `;
+            }
 
             feedbackEl.style.display = 'block';
             feedbackEl.innerHTML = `
-        <div style="background:${bgColor}; border:1px solid ${borderColor}; border-radius:10px; padding:1rem;">
-          <div style="font-weight:700; color:${borderColor}; margin-bottom:0.3rem; font-size:0.95rem;">${label}</div>
-          <div style="color:var(--color-text-secondary); font-size:0.85rem; line-height:1.5;">${q.explanation}</div>
-          ${tierChangeMsg}
-        </div>
-      `;
+                <div style="background:rgba(229,115,115,0.1); border:1px solid #E57373; border-radius:10px; padding:1rem;">
+                    ${feedbackContent}
+                    ${tierChangeMsg}
+                </div>
+            `;
         }
-
-        // Update stats display
-        const scoreEl = this.container.querySelectorAll('[style*="Score"]');
     }
 
     /* ══════════════════════════════════════════

@@ -319,14 +319,14 @@ class SubnetPracticeEngine {
             />
           </div>
           ${!this._answered ? `
-            <button class="btn btn-primary" id="sp-submit-btn">Check ✓</button>
+            <button class="btn btn-primary" id="sp-submit-btn">Check OK</button>
           ` : ''}
         </div>
 
         <!-- Hint -->
         ${!this._answered ? `
           <button class="btn btn-ghost" id="sp-hint-btn" style="font-size:var(--text-xs);">
-            💡 ${this._showHint ? 'Hide Hint' : 'Show Hint'}
+            TIP ${this._showHint ? 'Hide Hint' : 'Show Hint'}
           </button>
           ${this._showHint ? `
             <div style="margin-top:0.5rem; padding:0.6rem; background:rgba(255,184,0,0.08); border-left:3px solid var(--color-amber); border-radius:var(--radius-sm);">
@@ -349,7 +349,7 @@ class SubnetPracticeEngine {
 
     return `
       <div class="card" style="text-align:center; padding:2rem;">
-        <div style="font-size:4rem; margin-bottom:0.75rem;">${pass ? '🎉' : '📚'}</div>
+        <div style="font-size:4rem; margin-bottom:0.75rem;">${pass ? 'DONE' : 'LEARN'}</div>
         <h2 style="font-family:var(--font-display); margin-bottom:0.5rem;">
           ${pass ? 'Well Done!' : 'Keep Practising'}
         </h2>
@@ -438,7 +438,7 @@ class SubnetPracticeEngine {
           border-radius:var(--radius-md); animation: fadeInUp 300ms ease;">
           <div style="font-weight:700; color:${isCorrect ? 'var(--color-success)' : 'var(--color-error)'};
             margin-bottom:0.5rem; font-size:var(--text-md);">
-            ${isCorrect ? '✓ Correct!' : `✕ Not quite. The correct answer is: `}
+            ${isCorrect ? '✅ Correct!' : `❌ Not quite. The correct answer is: `}
             ${!isCorrect ? `<code style="color:var(--color-cyan); font-family:var(--font-mono);">${escapeHtml(correct)}</code>` : ''}
           </div>
           <p style="font-size:var(--text-xs); color:var(--color-text-secondary); line-height:1.7; margin-bottom:0.75rem;">
@@ -451,7 +451,7 @@ class SubnetPracticeEngine {
 
         <div style="display:flex; justify-content:flex-end; margin-top:1rem;">
           <button class="btn btn-primary" id="sp-next-btn">
-            ${this._current + 1 >= this._queue.length ? '📊 View Results' : 'Next Question →'}
+            ${this._current + 1 >= this._queue.length ? 'STATS View Results' : 'Next Question →'}
           </button>
         </div>
       `;

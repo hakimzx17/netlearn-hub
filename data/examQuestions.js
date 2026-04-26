@@ -1,16 +1,16 @@
 /**
  * examQuestions.js — CCNA Exam Question Bank
  *
- * 65 questions across all 6 official CCNA exam domains.
- * Pure data — no logic. Imported by examModeEngine.js only.
+ * 120 questions across all 6 official CCNA exam domains.
+ * Pure data plus lightweight question-set helpers. Imported by examModeEngine.js only.
  *
  * Domain distribution (mirrors real CCNA weighting):
- *   Domain 1 — Network Fundamentals         20% → 13 questions
- *   Domain 2 — Network Access               20% → 13 questions
- *   Domain 3 — IP Connectivity              25% → 16 questions
- *   Domain 4 — IP Services                  10% →  7 questions
- *   Domain 5 — Security Fundamentals        15% →  9 questions
- *   Domain 6 — Automation & Programmability 10% →  7 questions
+ *   Domain 1 — Network Fundamentals         20% → 24 questions
+ *   Domain 2 — Network Access               20% → 24 questions
+ *   Domain 3 — IP Connectivity              25% → 30 questions
+ *   Domain 4 — IP Services                  10% → 12 questions
+ *   Domain 5 — Security Fundamentals        15% → 18 questions
+ *   Domain 6 — Automation & Programmability 10% → 12 questions
  *
  * Question types:
  *   'single' — one correct answer (radio buttons)
@@ -936,7 +936,7 @@ const ADDITIONAL_QUESTIONS = [
       { id: 'c', text: '90' },
       { id: 'd', text: '110' },
     ],
-    correct: 'b',
+    correct: 'a',
     explanation: 'Directly connected networks have an AD of 0. Static routes have AD of 1. Other protocols have higher ADs (EIGRP 90, OSPF 110, RIP 120).',
   },
 
@@ -1241,10 +1241,530 @@ const ADDITIONAL_QUESTIONS = [
     answer: 'NETCONF',
     explanation: 'While RESTCONF is a RESTful protocol built on HTTP, NETCONF (RFC 6241) is a Cisco-promoted protocol that uses XML and operates over SSH. Both are used for network automation but NETCONF was developed earlier.',
   },
+
+  // Domain 1 - Network Fundamentals (Full practice expansion)
+  {
+    id: 'q096', domain: 1, type: 'single', difficulty: 'easy',
+    question: 'Which OSI layer uses frames as its protocol data unit?',
+    options: [
+      { id: 'a', text: 'Physical' },
+      { id: 'b', text: 'Data Link' },
+      { id: 'c', text: 'Network' },
+      { id: 'd', text: 'Transport' },
+    ],
+    correct: 'b',
+    explanation: 'The Data Link layer encapsulates packets into frames for local delivery on a single link. The Network layer uses packets, Transport uses segments/datagrams, and Physical transmits bits.',
+  },
+  {
+    id: 'q097', domain: 1, type: 'single', difficulty: 'medium',
+    question: 'Which Ethernet media is typically preferred for long-distance building-to-building links?',
+    options: [
+      { id: 'a', text: 'Single-mode fiber' },
+      { id: 'b', text: 'Category 5e UTP only' },
+      { id: 'c', text: 'Coaxial cable' },
+      { id: 'd', text: 'Console rollover cable' },
+    ],
+    correct: 'a',
+    explanation: 'Single-mode fiber supports much longer distances than copper UTP and is commonly used for campus and service-provider style links between buildings.',
+  },
+  {
+    id: 'q098', domain: 1, type: 'single', difficulty: 'easy',
+    question: 'How many bits are in a standard Ethernet MAC address?',
+    options: [
+      { id: 'a', text: '32 bits' },
+      { id: 'b', text: '48 bits' },
+      { id: 'c', text: '64 bits' },
+      { id: 'd', text: '128 bits' },
+    ],
+    correct: 'b',
+    explanation: 'Ethernet MAC addresses are 48 bits, normally written as 12 hexadecimal digits such as 00:11:22:33:44:55.',
+  },
+  {
+    id: 'q099', domain: 1, type: 'single', difficulty: 'medium',
+    question: 'Which device primarily separates broadcast domains by default?',
+    options: [
+      { id: 'a', text: 'Hub' },
+      { id: 'b', text: 'Layer 2 switch' },
+      { id: 'c', text: 'Router' },
+      { id: 'd', text: 'Repeater' },
+    ],
+    correct: 'c',
+    explanation: 'Routers separate broadcast domains. A Layer 2 switch forwards broadcasts within the same VLAN unless routing or VLAN boundaries are introduced.',
+  },
+  {
+    id: 'q100', domain: 1, type: 'single', difficulty: 'easy',
+    question: 'How many bits are in an IPv6 address?',
+    options: [
+      { id: 'a', text: '32 bits' },
+      { id: 'b', text: '48 bits' },
+      { id: 'c', text: '64 bits' },
+      { id: 'd', text: '128 bits' },
+    ],
+    correct: 'd',
+    explanation: 'IPv6 addresses are 128 bits long, represented as eight groups of hexadecimal values separated by colons.',
+  },
+  {
+    id: 'q101', domain: 1, type: 'single', difficulty: 'medium',
+    question: 'Which cloud service model gives the customer virtual machines, storage, and networks while the provider manages the physical infrastructure?',
+    options: [
+      { id: 'a', text: 'SaaS' },
+      { id: 'b', text: 'PaaS' },
+      { id: 'c', text: 'IaaS' },
+      { id: 'd', text: 'FaaS only' },
+    ],
+    correct: 'c',
+    explanation: 'Infrastructure as a Service (IaaS) exposes compute, storage, and networking resources. The provider owns the physical platform; the customer manages operating systems and applications.',
+  },
+
+  // Domain 2 - Network Access (Full practice expansion)
+  {
+    id: 'q102', domain: 2, type: 'single', difficulty: 'easy',
+    question: 'A switchport configured as an access port carries traffic for how many VLANs under normal operation?',
+    options: [
+      { id: 'a', text: 'One VLAN' },
+      { id: 'b', text: 'Two VLANs only' },
+      { id: 'c', text: 'All VLANs' },
+      { id: 'd', text: 'Only the native VLAN and no data VLAN' },
+    ],
+    correct: 'a',
+    explanation: 'An access port belongs to a single data VLAN. Voice VLAN support is a special case where the attached phone tags voice traffic while the PC data VLAN remains untagged.',
+  },
+  {
+    id: 'q103', domain: 2, type: 'single', difficulty: 'medium',
+    question: 'On an IEEE 802.1Q trunk, how is native VLAN traffic handled by default?',
+    options: [
+      { id: 'a', text: 'It is double-tagged' },
+      { id: 'b', text: 'It is sent untagged' },
+      { id: 'c', text: 'It is dropped' },
+      { id: 'd', text: 'It is always VLAN 4095' },
+    ],
+    correct: 'b',
+    explanation: '802.1Q trunks tag VLAN traffic except for the native VLAN, which is transmitted untagged by default. Both trunk ends should agree on the native VLAN.',
+  },
+  {
+    id: 'q104', domain: 2, type: 'single', difficulty: 'medium',
+    question: 'How is the STP root bridge elected?',
+    options: [
+      { id: 'a', text: 'Highest interface bandwidth' },
+      { id: 'b', text: 'Lowest bridge ID' },
+      { id: 'c', text: 'Highest MAC address only' },
+      { id: 'd', text: 'Lowest port number on each switch' },
+    ],
+    correct: 'b',
+    explanation: 'STP elects the root bridge using the lowest bridge ID, which is made from bridge priority plus the switch MAC address.',
+  },
+  {
+    id: 'q105', domain: 2, type: 'single', difficulty: 'medium',
+    question: 'Which EtherChannel negotiation protocol is the open standard?',
+    options: [
+      { id: 'a', text: 'PAgP' },
+      { id: 'b', text: 'LACP' },
+      { id: 'c', text: 'DTP' },
+      { id: 'd', text: 'VTP' },
+    ],
+    correct: 'b',
+    explanation: 'LACP is IEEE 802.3ad/802.1AX and is vendor-neutral. PAgP is Cisco proprietary; DTP negotiates trunks; VTP distributes VLAN database information.',
+  },
+  {
+    id: 'q106', domain: 2, type: 'single', difficulty: 'medium',
+    question: 'In a controller-based wireless deployment, what is a primary role of the WLC?',
+    options: [
+      { id: 'a', text: 'Provide centralized control and policy for lightweight APs' },
+      { id: 'b', text: 'Replace all switches in the wired LAN' },
+      { id: 'c', text: 'Perform NAT for every wireless client' },
+      { id: 'd', text: 'Disable roaming between APs' },
+    ],
+    correct: 'a',
+    explanation: 'A wireless LAN controller centralizes AP management, security policy, RF settings, and roaming functions for lightweight access points.',
+  },
+  {
+    id: 'q107', domain: 2, type: 'single', difficulty: 'hard',
+    question: 'Which encryption method is associated with WPA2-Personal using AES?',
+    options: [
+      { id: 'a', text: 'WEP' },
+      { id: 'b', text: 'TKIP' },
+      { id: 'c', text: 'CCMP' },
+      { id: 'd', text: 'LEAP' },
+    ],
+    correct: 'c',
+    explanation: 'WPA2 with AES uses CCMP. TKIP is associated with older WPA compatibility and WEP is obsolete and insecure.',
+  },
+
+  // Domain 3 - IP Connectivity (Full practice expansion)
+  {
+    id: 'q108', domain: 3, type: 'single', difficulty: 'medium',
+    question: 'When multiple routing table entries match a destination, which route is selected first?',
+    options: [
+      { id: 'a', text: 'The route with the longest prefix match' },
+      { id: 'b', text: 'The route with the highest administrative distance' },
+      { id: 'c', text: 'The route learned most recently' },
+      { id: 'd', text: 'The route with the lowest interface number' },
+    ],
+    correct: 'a',
+    explanation: 'Routers choose the most specific matching route first. Administrative distance and metric only decide between routes to the same prefix length.',
+  },
+  {
+    id: 'q109', domain: 3, type: 'single', difficulty: 'easy',
+    question: 'Which destination prefix represents an IPv4 default route?',
+    options: [
+      { id: 'a', text: '255.255.255.255/32' },
+      { id: 'b', text: '127.0.0.0/8' },
+      { id: 'c', text: '0.0.0.0/0' },
+      { id: 'd', text: '224.0.0.0/4' },
+    ],
+    correct: 'c',
+    explanation: 'The IPv4 default route is 0.0.0.0/0 and matches any destination not covered by a more specific route.',
+  },
+  {
+    id: 'q110', domain: 3, type: 'single', difficulty: 'medium',
+    question: 'Which OSPF router ID source has the highest priority?',
+    options: [
+      { id: 'a', text: 'Lowest active interface IP address' },
+      { id: 'b', text: 'Manually configured router-id command' },
+      { id: 'c', text: 'Highest active physical interface only' },
+      { id: 'd', text: 'OSPF process ID' },
+    ],
+    correct: 'b',
+    explanation: 'OSPF prefers a manually configured router ID. If absent, it uses the highest loopback IP, then the highest active non-loopback interface IP.',
+  },
+  {
+    id: 'q111', domain: 3, type: 'single', difficulty: 'medium',
+    question: 'In multi-area OSPF, which area is the backbone area?',
+    options: [
+      { id: 'a', text: 'Area 0' },
+      { id: 'b', text: 'Area 1' },
+      { id: 'c', text: 'Area 10' },
+      { id: 'd', text: 'The area with the most routers' },
+    ],
+    correct: 'a',
+    explanation: 'Area 0 is the OSPF backbone. Other areas should connect to Area 0 directly or through a virtual link in special cases.',
+  },
+  {
+    id: 'q112', domain: 3, type: 'single', difficulty: 'easy',
+    question: 'In Cisco IOS routing table output, what route code indicates OSPF?',
+    options: [
+      { id: 'a', text: 'C' },
+      { id: 'b', text: 'S' },
+      { id: 'c', text: 'O' },
+      { id: 'd', text: 'R' },
+    ],
+    correct: 'c',
+    explanation: 'Cisco IOS marks OSPF-learned routes with O. Connected routes are C, static routes are S, and RIP routes are R.',
+  },
+  {
+    id: 'q113', domain: 3, type: 'single', difficulty: 'medium',
+    question: 'Which IPv6 prefix is used for link-local addresses?',
+    options: [
+      { id: 'a', text: '2000::/3' },
+      { id: 'b', text: 'FE80::/10' },
+      { id: 'c', text: 'FF00::/8' },
+      { id: 'd', text: 'FC00::/7' },
+    ],
+    correct: 'b',
+    explanation: 'IPv6 link-local addresses use FE80::/10. They are automatically present on IPv6-enabled interfaces and are used by neighbor discovery and routing protocols.',
+  },
+  {
+    id: 'q114', domain: 3, type: 'single', difficulty: 'medium',
+    question: 'Which IPv6 protocol family replaces ARP functions?',
+    options: [
+      { id: 'a', text: 'NDP using ICMPv6' },
+      { id: 'b', text: 'RIPng only' },
+      { id: 'c', text: 'DHCPv6 only' },
+      { id: 'd', text: 'GRE' },
+    ],
+    correct: 'a',
+    explanation: 'Neighbor Discovery Protocol (NDP) uses ICMPv6 messages for address resolution, router discovery, and neighbor reachability in IPv6 networks.',
+  },
+  {
+    id: 'q115', domain: 3, type: 'single', difficulty: 'medium',
+    question: 'What is the purpose of HSRP?',
+    options: [
+      { id: 'a', text: 'Encrypt routing updates' },
+      { id: 'b', text: 'Provide first-hop default gateway redundancy' },
+      { id: 'c', text: 'Negotiate trunk links' },
+      { id: 'd', text: 'Assign IPv6 addresses automatically' },
+    ],
+    correct: 'b',
+    explanation: 'HSRP provides first-hop redundancy by presenting a virtual default gateway IP and MAC address that can move between routers after a failure.',
+  },
+  {
+    id: 'q116', domain: 3, type: 'input', difficulty: 'easy',
+    question: 'How many usable host addresses are in an IPv4 /30 subnet?',
+    options: [],
+    correct: '',
+    answer: '2',
+    explanation: 'A /30 has four total addresses. Two are reserved for network and broadcast, leaving two usable host addresses.',
+  },
+
+  // Domain 5 - Security Fundamentals (Full practice expansion)
+  {
+    id: 'q117', domain: 5, type: 'single', difficulty: 'easy',
+    question: 'Which security principle grants users only the permissions required to perform their job?',
+    options: [
+      { id: 'a', text: 'Least privilege' },
+      { id: 'b', text: 'Nonrepudiation' },
+      { id: 'c', text: 'Availability' },
+      { id: 'd', text: 'Obfuscation' },
+    ],
+    correct: 'a',
+    explanation: 'Least privilege limits users and systems to the minimum access needed, reducing damage if an account or device is compromised.',
+  },
+  {
+    id: 'q118', domain: 5, type: 'single', difficulty: 'medium',
+    question: 'A standard IPv4 ACL filters traffic primarily by which field?',
+    options: [
+      { id: 'a', text: 'Source IP address' },
+      { id: 'b', text: 'Destination TCP port' },
+      { id: 'c', text: 'Destination IP address and protocol' },
+      { id: 'd', text: 'Source MAC address only' },
+    ],
+    correct: 'a',
+    explanation: 'Standard IPv4 ACLs match source IPv4 address only. Extended ACLs can match protocol, source, destination, and transport-layer ports.',
+  },
+  {
+    id: 'q119', domain: 5, type: 'single', difficulty: 'medium',
+    question: 'In DHCP snooping, which ports are typically configured as trusted?',
+    options: [
+      { id: 'a', text: 'User access ports' },
+      { id: 'b', text: 'Ports leading to legitimate DHCP servers or upstream switches' },
+      { id: 'c', text: 'All ports by default' },
+      { id: 'd', text: 'Only administratively shutdown ports' },
+    ],
+    correct: 'b',
+    explanation: 'Trusted ports face legitimate DHCP servers or upstream infrastructure. User-facing access ports remain untrusted to block rogue DHCP server responses.',
+  },
+  {
+    id: 'q120', domain: 5, type: 'single', difficulty: 'hard',
+    question: 'Dynamic ARP Inspection helps mitigate which attack?',
+    options: [
+      { id: 'a', text: 'ARP spoofing or poisoning' },
+      { id: 'b', text: 'Brute-force password guessing' },
+      { id: 'c', text: 'DNS cache exhaustion' },
+      { id: 'd', text: 'Wireless deauthentication only' },
+    ],
+    correct: 'a',
+    explanation: 'Dynamic ARP Inspection validates ARP packets against trusted bindings, commonly learned through DHCP snooping, to block spoofed ARP replies.',
+  },
 ];
 
 // Add additional questions to main pool
 QUESTIONS.push(...ADDITIONAL_QUESTIONS);
+
+export const EXAM_TOPIC_CATALOG = {
+  1: {
+    pathId: 'fundamentals',
+    topicIds: [
+      'fundamentals-1-1-osi-tcp-ip-models',
+      'fundamentals-1-2-ethernet-lan-standards',
+      'fundamentals-1-3-mac-addresses',
+      'fundamentals-1-4-csma-cd-ethernet-frames',
+      'fundamentals-1-5-network-components',
+      'fundamentals-1-6-wan-fundamentals',
+      'fundamentals-1-7-ipv4-addressing',
+      'fundamentals-1-8-ipv4-subnetting',
+      'fundamentals-1-9-ipv6-fundamentals',
+      'fundamentals-1-10-ipv6-addressing-eui-64',
+      'fundamentals-1-11-tcp-vs-udp',
+      'fundamentals-1-12-ip-ports-applications',
+      'fundamentals-1-13-virtualization-fundamentals',
+      'fundamentals-1-14-cloud-computing',
+    ],
+  },
+  2: {
+    pathId: 'network-access',
+    topicIds: [
+      'network-access-2-1-switch-operation-mac-table',
+      'network-access-2-2-cli-basics',
+      'network-access-2-3-switch-interface-config',
+      'network-access-2-4-vlans',
+      'network-access-2-5-vlan-trunking-802-1q',
+      'network-access-2-6-voice-vlans',
+      'network-access-2-7-vtp',
+      'network-access-2-8-stp-concepts',
+      'network-access-2-9-rstp-per-vlan-stp',
+      'network-access-2-10-etherchannel',
+      'network-access-2-11-cdp-lldp',
+      'network-access-2-12-wireless-lan-fundamentals',
+      'network-access-2-13-wireless-lan-architectures',
+      'network-access-2-14-wireless-lan-security',
+      'network-access-2-15-wireless-lan-configuration',
+    ],
+  },
+  3: {
+    pathId: 'ip-connectivity',
+    topicIds: [
+      'ip-connectivity-3-1-router-operation',
+      'ip-connectivity-3-2-routing-table-fundamentals',
+      'ip-connectivity-3-3-administrative-distance',
+      'ip-connectivity-3-4-ipv4-static-routing',
+      'ip-connectivity-3-5-ipv4-troubleshooting',
+      'ip-connectivity-3-6-ospf-concepts',
+      'ip-connectivity-3-7-ospf-configuration',
+      'ip-connectivity-3-8-ospf-network-types-neighbors',
+      'ip-connectivity-3-9-multi-area-ospf',
+      'ip-connectivity-3-10-ipv6-static-routing',
+      'ip-connectivity-3-11-ipv6-routing-ndp',
+      'ip-connectivity-3-12-first-hop-redundancy-hsrp',
+    ],
+  },
+  4: {
+    pathId: 'ip-services',
+    topicIds: [
+      'ip-services-4-1-nat-concepts-terminology',
+      'ip-services-4-2-static-nat',
+      'ip-services-4-3-dynamic-nat-pat',
+      'ip-services-4-4-ntp',
+      'ip-services-4-5-dns',
+      'ip-services-4-6-dhcp',
+      'ip-services-4-7-ssh-remote-access',
+      'ip-services-4-8-snmp',
+      'ip-services-4-9-syslog',
+      'ip-services-4-10-qos-fundamentals',
+      'ip-services-4-11-tftp-ftp',
+    ],
+  },
+  5: {
+    pathId: 'security-fundamentals',
+    topicIds: [
+      'security-fundamentals-5-1-security-concepts',
+      'security-fundamentals-5-2-attack-types',
+      'security-fundamentals-5-3-social-engineering',
+      'security-fundamentals-5-4-password-security-aaa',
+      'security-fundamentals-5-5-802-1x-pnac',
+      'security-fundamentals-5-6-acl-fundamentals',
+      'security-fundamentals-5-7-advanced-acls',
+      'security-fundamentals-5-8-firewalls-ips',
+      'security-fundamentals-5-9-port-security',
+      'security-fundamentals-5-10-dhcp-snooping',
+      'security-fundamentals-5-11-dynamic-arp-inspection',
+      'security-fundamentals-5-12-vpns-site-to-site',
+      'security-fundamentals-5-13-vpns-remote-access',
+      'security-fundamentals-5-14-securing-wireless-networks',
+    ],
+  },
+  6: {
+    pathId: 'automation-programmability',
+    topicIds: [
+      'automation-programmability-6-1-why-network-automation',
+      'automation-programmability-6-2-logical-planes',
+      'automation-programmability-6-3-sdn-architecture',
+      'automation-programmability-6-4-cisco-sdn-solutions',
+      'automation-programmability-6-5-catalyst-center-dnac',
+      'automation-programmability-6-6-rest-apis',
+      'automation-programmability-6-7-rest-api-authentication',
+      'automation-programmability-6-8-json-data-format',
+      'automation-programmability-6-9-xml-yaml',
+      'automation-programmability-6-10-ansible',
+      'automation-programmability-6-11-terraform',
+      'automation-programmability-6-12-puppet-chef',
+    ],
+  },
+};
+
+const TOPIC_INFERENCE_RULES = [
+  { domain: 1, topicId: 'fundamentals-1-14-cloud-computing', pattern: /\b(cloud|iaas|paas|saas|provider)\b/i },
+  { domain: 1, topicId: 'fundamentals-1-13-virtualization-fundamentals', pattern: /\b(virtual|hypervisor|vm|container)\b/i },
+  { domain: 1, topicId: 'fundamentals-1-11-tcp-vs-udp', pattern: /\b(tcp|udp|transport|handshake|syn|ack|flow control|guaranteed delivery)\b/i },
+  { domain: 1, topicId: 'fundamentals-1-12-ip-ports-applications', pattern: /\b(port|dns|dhcp|http|https|ssh|ftp|application)\b/i },
+  { domain: 1, topicId: 'fundamentals-1-10-ipv6-addressing-eui-64', pattern: /\b(eui-64|modified eui|ipv6 address)\b/i },
+  { domain: 1, topicId: 'fundamentals-1-9-ipv6-fundamentals', pattern: /\b(ipv6|128 bits|128-bit)\b/i },
+  { domain: 1, topicId: 'fundamentals-1-8-ipv4-subnetting', pattern: /\b(subnet|subnet mask|cidr|\/\d{1,2}|usable host)\b/i },
+  { domain: 1, topicId: 'fundamentals-1-7-ipv4-addressing', pattern: /\b(ipv4|rfc 1918|private ip|ttl|default gateway)\b/i },
+  { domain: 1, topicId: 'fundamentals-1-4-csma-cd-ethernet-frames', pattern: /\b(csma|collision|frame)\b/i },
+  { domain: 1, topicId: 'fundamentals-1-3-mac-addresses', pattern: /\b(mac|arp|cam)\b/i },
+  { domain: 1, topicId: 'fundamentals-1-2-ethernet-lan-standards', pattern: /\b(ethernet|mtu|fiber|utp|duplex)\b/i },
+  { domain: 1, topicId: 'fundamentals-1-5-network-components', pattern: /\b(router|switch|hub|repeater|firewall|device|broadcast domain)\b/i },
+  { domain: 1, topicId: 'fundamentals-1-1-osi-tcp-ip-models', pattern: /\b(osi|layer|pdu|encapsulation|model)\b/i },
+
+  { domain: 2, topicId: 'network-access-2-14-wireless-lan-security', pattern: /\b(wpa|wpa2|wpa3|ccmp|tkip|wep|wireless security)\b/i },
+  { domain: 2, topicId: 'network-access-2-13-wireless-lan-architectures', pattern: /\b(wlc|controller|lightweight ap|capwap)\b/i },
+  { domain: 2, topicId: 'network-access-2-12-wireless-lan-fundamentals', pattern: /\b(wireless|wlan|ssid|access point|ap\b|802\.11)\b/i },
+  { domain: 2, topicId: 'network-access-2-10-etherchannel', pattern: /\b(etherchannel|lacp|pagp|port-channel)\b/i },
+  { domain: 2, topicId: 'network-access-2-9-rstp-per-vlan-stp', pattern: /\b(rstp|rapid spanning|per-vlan)\b/i },
+  { domain: 2, topicId: 'network-access-2-8-stp-concepts', pattern: /\b(stp|spanning tree|root bridge|bpdu|portfast)\b/i },
+  { domain: 2, topicId: 'network-access-2-5-vlan-trunking-802-1q', pattern: /\b(trunk|802\.1q|native vlan|tagged|untagged)\b/i },
+  { domain: 2, topicId: 'network-access-2-4-vlans', pattern: /\b(vlan|access port|broadcast domain)\b/i },
+  { domain: 2, topicId: 'network-access-2-1-switch-operation-mac-table', pattern: /\b(mac address table|cam|switching|flood|learns source)\b/i },
+  { domain: 2, topicId: 'network-access-2-3-switch-interface-config', pattern: /\b(interface|switchport|speed|duplex|shutdown)\b/i },
+  { domain: 2, topicId: 'network-access-2-11-cdp-lldp', pattern: /\b(cdp|lldp|neighbor discovery)\b/i },
+  { domain: 2, topicId: 'network-access-2-7-vtp', pattern: /\b(vtp|vlan database)\b/i },
+
+  { domain: 3, topicId: 'ip-connectivity-3-12-first-hop-redundancy-hsrp', pattern: /\b(hsrp|vrrp|first-hop|default gateway redundancy)\b/i },
+  { domain: 3, topicId: 'ip-connectivity-3-11-ipv6-routing-ndp', pattern: /\b(ndp|neighbor discovery|icmpv6)\b/i },
+  { domain: 3, topicId: 'ip-connectivity-3-10-ipv6-static-routing', pattern: /\b(ipv6|fe80|link-local)\b/i },
+  { domain: 3, topicId: 'ip-connectivity-3-9-multi-area-ospf', pattern: /\b(area 0|backbone|multi-area)\b/i },
+  { domain: 3, topicId: 'ip-connectivity-3-8-ospf-network-types-neighbors', pattern: /\b(neighbor|adjacency|dr|bdr)\b/i },
+  { domain: 3, topicId: 'ip-connectivity-3-7-ospf-configuration', pattern: /\b(router-id|network command|ospf configuration)\b/i },
+  { domain: 3, topicId: 'ip-connectivity-3-6-ospf-concepts', pattern: /\b(ospf|cost|area)\b/i },
+  { domain: 3, topicId: 'ip-connectivity-3-5-ipv4-troubleshooting', pattern: /\b(troubleshoot|ping|ttl|loop|unreachable)\b/i },
+  { domain: 3, topicId: 'ip-connectivity-3-4-ipv4-static-routing', pattern: /\b(static route|default route|0\.0\.0\.0\/0)\b/i },
+  { domain: 3, topicId: 'ip-connectivity-3-3-administrative-distance', pattern: /\b(administrative distance|\bad\b|trusted|eigrp|rip)\b/i },
+  { domain: 3, topicId: 'ip-connectivity-3-2-routing-table-fundamentals', pattern: /\b(routing table|route code|longest prefix|prefix match|metric)\b/i },
+  { domain: 3, topicId: 'ip-connectivity-3-1-router-operation', pattern: /\b(router|routing|forward|next hop|default gateway)\b/i },
+
+  { domain: 4, topicId: 'ip-services-4-3-dynamic-nat-pat', pattern: /\b(pat|overload|dynamic nat)\b/i },
+  { domain: 4, topicId: 'ip-services-4-2-static-nat', pattern: /\b(static nat|one-to-one)\b/i },
+  { domain: 4, topicId: 'ip-services-4-1-nat-concepts-terminology', pattern: /\b(nat|inside local|outside global|translate)\b/i },
+  { domain: 4, topicId: 'ip-services-4-6-dhcp', pattern: /\b(dhcp|67|68|lease)\b/i },
+  { domain: 4, topicId: 'ip-services-4-5-dns', pattern: /\b(dns|domain name|resolver)\b/i },
+  { domain: 4, topicId: 'ip-services-4-4-ntp', pattern: /\b(ntp|time sync|clock)\b/i },
+  { domain: 4, topicId: 'ip-services-4-8-snmp', pattern: /\b(snmp|mib|trap|161|162)\b/i },
+  { domain: 4, topicId: 'ip-services-4-9-syslog', pattern: /\b(syslog|logging)\b/i },
+  { domain: 4, topicId: 'ip-services-4-7-ssh-remote-access', pattern: /\b(ssh|remote access|vty|telnet)\b/i },
+  { domain: 4, topicId: 'ip-services-4-10-qos-fundamentals', pattern: /\b(qos|quality of service|classification|marking)\b/i },
+  { domain: 4, topicId: 'ip-services-4-11-tftp-ftp', pattern: /\b(tftp|ftp|file transfer|20|21|69)\b/i },
+
+  { domain: 5, topicId: 'security-fundamentals-5-11-dynamic-arp-inspection', pattern: /\b(dynamic arp inspection|dai|arp spoof|arp poisoning)\b/i },
+  { domain: 5, topicId: 'security-fundamentals-5-10-dhcp-snooping', pattern: /\b(dhcp snooping|rogue dhcp|trusted port)\b/i },
+  { domain: 5, topicId: 'security-fundamentals-5-9-port-security', pattern: /\b(port security|sticky mac|violation)\b/i },
+  { domain: 5, topicId: 'security-fundamentals-5-8-firewalls-ips', pattern: /\b(firewall|ips|ids|inspection)\b/i },
+  { domain: 5, topicId: 'security-fundamentals-5-7-advanced-acls', pattern: /\b(extended acl|destination port|protocol)\b/i },
+  { domain: 5, topicId: 'security-fundamentals-5-6-acl-fundamentals', pattern: /\b(acl|access list|standard acl|source ip)\b/i },
+  { domain: 5, topicId: 'security-fundamentals-5-5-802-1x-pnac', pattern: /\b(802\.1x|pnac|supplicant|authenticator)\b/i },
+  { domain: 5, topicId: 'security-fundamentals-5-4-password-security-aaa', pattern: /\b(aaa|authentication|authorization|accounting|password|least privilege)\b/i },
+  { domain: 5, topicId: 'security-fundamentals-5-3-social-engineering', pattern: /\b(phishing|social engineering|pretext|baiting)\b/i },
+  { domain: 5, topicId: 'security-fundamentals-5-2-attack-types', pattern: /\b(attack|dos|ddos|man-in-the-middle|brute-force|spoof)\b/i },
+  { domain: 5, topicId: 'security-fundamentals-5-12-vpns-site-to-site', pattern: /\b(ipsec|tunnel mode|site-to-site)\b/i },
+  { domain: 5, topicId: 'security-fundamentals-5-13-vpns-remote-access', pattern: /\b(remote access vpn|client vpn)\b/i },
+  { domain: 5, topicId: 'security-fundamentals-5-14-securing-wireless-networks', pattern: /\b(wireless security|wpa|psk)\b/i },
+  { domain: 5, topicId: 'security-fundamentals-5-1-security-concepts', pattern: /\b(security|confidentiality|integrity|availability|risk)\b/i },
+
+  { domain: 6, topicId: 'automation-programmability-6-5-catalyst-center-dnac', pattern: /\b(dna center|dnac|catalyst center)\b/i },
+  { domain: 6, topicId: 'automation-programmability-6-7-rest-api-authentication', pattern: /\b(authentication|token|bearer|api key)\b/i },
+  { domain: 6, topicId: 'automation-programmability-6-6-rest-apis', pattern: /\b(rest|restconf|http method|get|post|put|delete|api)\b/i },
+  { domain: 6, topicId: 'automation-programmability-6-9-xml-yaml', pattern: /\b(xml|yaml|yang)\b/i },
+  { domain: 6, topicId: 'automation-programmability-6-8-json-data-format', pattern: /\b(json|object|array)\b/i },
+  { domain: 6, topicId: 'automation-programmability-6-10-ansible', pattern: /\b(ansible|playbook)\b/i },
+  { domain: 6, topicId: 'automation-programmability-6-11-terraform', pattern: /\b(terraform|iac|state file)\b/i },
+  { domain: 6, topicId: 'automation-programmability-6-12-puppet-chef', pattern: /\b(puppet|chef)\b/i },
+  { domain: 6, topicId: 'automation-programmability-6-3-sdn-architecture', pattern: /\b(sdn|software-defined|controller)\b/i },
+  { domain: 6, topicId: 'automation-programmability-6-2-logical-planes', pattern: /\b(control plane|data plane|management plane)\b/i },
+  { domain: 6, topicId: 'automation-programmability-6-1-why-network-automation', pattern: /\b(automation|programmability|manual configuration)\b/i },
+];
+
+function fallbackTopicForQuestion(question) {
+  const catalog = EXAM_TOPIC_CATALOG[question.domain];
+  if (!catalog) return { pathId: null, topicId: null };
+  const numericId = Number(String(question.id || '').replace(/\D/g, '')) || 1;
+  const topicId = catalog.topicIds[(numericId - 1) % catalog.topicIds.length];
+  return { pathId: catalog.pathId, topicId };
+}
+
+export function getQuestionTopic(question) {
+  const catalog = EXAM_TOPIC_CATALOG[question?.domain];
+  if (!catalog) return { pathId: question?.pathId || null, topicId: question?.topicId || null };
+  if (question.pathId && question.topicId) return { pathId: question.pathId, topicId: question.topicId };
+
+  const haystack = `${question.question || ''} ${question.explanation || ''}`;
+  const rule = TOPIC_INFERENCE_RULES.find((entry) => entry.domain === question.domain && entry.pattern.test(haystack));
+  return { pathId: catalog.pathId, topicId: rule?.topicId || fallbackTopicForQuestion(question).topicId };
+}
+
+QUESTIONS.forEach((question) => {
+  const topic = getQuestionTopic(question);
+  question.pathId = question.pathId || topic.pathId;
+  question.topicId = question.topicId || topic.topicId;
+});
 
 /**
  * Build a shuffled question set for the given exam mode.
@@ -1262,6 +1782,6 @@ export function buildQuestionSet(mode, domainFilter = null) {
     const j = Math.floor(Math.random() * (i + 1));
     [pool[i], pool[j]] = [pool[j], pool[i]];
   }
-  const counts = { quick: 20, topic: 20, full: 60 };
+  const counts = { quick: 20, topic: 20, full: 120 };
   return pool.slice(0, counts[mode] ?? 20);
 }

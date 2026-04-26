@@ -1,0 +1,16 @@
+import { q } from './helpers.js';
+
+const socialEngineeringBank = [
+  q('d5-5-3-q1', 'What is the defining feature of social engineering?', ['It manipulates people rather than attacking technology directly first', 'It always uses malware only', 'It affects only physical security', 'It replaces encryption'], 0, 'easy', 'Social engineering targets people and decision-making rather than technology first.'),
+  q('d5-5-3-q2', 'Which attack type commonly uses fake emails or websites to steal credentials?', ['Phishing', 'DHCP Snooping', 'Stateful inspection', 'NTP peering'], 0, 'easy', 'Phishing commonly uses fake communications or sites to steal information.'),
+  q('d5-5-3-q3', 'What is pretexting?', ['Inventing a believable story or identity to gain trust', 'Sending a SYN flood', 'Changing a VLAN tag', 'Building a GRE tunnel'], 0, 'medium', 'Pretexting is a fabricated story or role used to manipulate trust.'),
+  q('d5-5-3-q4', 'What does tailgating refer to in physical security?', ['Following an authorized person into a restricted area', 'Repeated password guesses', 'Intercepting wireless frames', 'Routing through an ASBR'], 0, 'easy', 'Tailgating is unauthorized physical entry by following someone who has legitimate access.'),
+  q('d5-5-3-q5', 'Which human factor is frequently exploited in social engineering?', ['Urgency and fear', 'Packet loss only', 'Interface MTU only', 'Route summarization'], 0, 'medium', 'Attackers commonly exploit urgency, fear, curiosity, or trust.'),
+  q('d5-5-3-q6', 'What is a strong first response to an unexpected urgent request for credentials?', ['Pause and verify through a trusted channel', 'Reply immediately to avoid delay', 'Disable Syslog', 'Change the spanning-tree priority'], 0, 'easy', 'Verification through a trusted channel is a strong defense against social engineering.'),
+  q('d5-5-3-q7', 'Why does social engineering matter even in a technically strong environment?', ['A manipulated person can bypass otherwise good technical controls', 'It disables all encryption automatically', 'It replaces ACLs', 'It only affects unsecured Wi-Fi'], 0, 'medium', 'Human manipulation can bypass technical protections if a user grants access or reveals information.'),
+  q('d5-5-3-q8', 'Which pairing is correct?', ['Phishing = fake communication; tailgating = physical entry abuse', 'Phishing = MAC flooding; tailgating = DNS recursion', 'Phishing = IPsec tunneling; tailgating = NTP authentication', 'Phishing = route poisoning; tailgating = DSCP marking'], 0, 'medium', 'Phishing uses fake communications, while tailgating abuses physical access.'),
+  q('d5-5-3-q9', 'What kind of control best complements awareness training against tailgating?', ['Physical badge checks and visitor procedures', 'Longer NTP timers', 'FTP authentication only', 'Wildcard masks'], 0, 'medium', 'Physical controls such as badges and visitor procedures help defend against tailgating.'),
+  q('d5-5-3-q10', 'What is the best summary of social engineering defense?', ['Use awareness plus process and physical verification controls', 'Trust urgent requests from authority figures', 'Rely only on stronger routing', 'Ignore user behavior in security planning'], 0, 'hard', 'Effective defense combines awareness with real verification processes and physical controls.'),
+];
+
+export default socialEngineeringBank;

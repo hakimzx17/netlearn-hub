@@ -26,7 +26,7 @@
  */
 
 import { eventBus }  from '../js/eventBus.js';
-import { flashClass } from '../utils/helperFunctions.js';
+import { flashClass, resolveInjectedCssTokens } from '../utils/helperFunctions.js';
 
 class DragDropEngine {
   constructor() {
@@ -124,6 +124,32 @@ class DragDropEngine {
   }
 
   /**
+   * Public read-only state helper so callers do not depend on internals.
+   * @returns {boolean}
+   */
+  isFeedbackVisible() {
+    return this._feedbackVisible;
+  }
+
+  /**
+   * Reveal the full answer map and lock the board.
+   * If no map is provided, default to each zone's configured accepted item.
+   *
+   * @param {Object} [placementsByZone] — { [zoneId]: itemId }
+   */
+  revealAnswer(placementsByZone = null) {
+    const map = placementsByZone || this._config.zones.reduce((acc, zone) => {
+      acc[zone.id] = zone.accepts;
+      return acc;
+    }, {});
+    this._placements = { ...map };
+    this._feedbackVisible = true;
+    this._locked = true;
+    this._render();
+    this._bindEvents();
+  }
+
+  /**
    * Programmatically check current state and return score.
    * @returns {{ score: number, total: number, placements: Object }}
    */
@@ -142,8 +168,7 @@ class DragDropEngine {
    */
   lock() {
     this._locked = true;
-    const allItemsContainer = this._itemsContainer.closest('.layout-main-sidebar') || this._itemsContainer;
-    allItemsContainer.querySelectorAll('.dnd-item').forEach(el => {
+    this._getDraggableItemElements().forEach(el => {
       el.setAttribute('draggable', 'false');
       el.style.cursor = 'default';
     });
@@ -245,8 +270,8 @@ class DragDropEngine {
                draggable="${this._locked ? 'false' : 'true'}"
                style="margin: 0; width: 100%; cursor: ${this._locked ? 'default' : 'grab'}; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
             <span class="dnd-item__label" style="font-size: ${labelFontSize}; font-weight: 700;">${placedItem.label}</span>
-            ${this._feedbackVisible && isCorrect ? '<span class="dnd-item__status">✓</span>' : ''}
-            ${this._feedbackVisible && isIncorrect ? '<span class="dnd-item__status">✕</span>' : ''}
+            ${this._feedbackVisible && isCorrect ? '<span class="dnd-item__status">OK</span>' : ''}
+            ${this._feedbackVisible && isIncorrect ? '<span class="dnd-item__status">X</span>' : ''}
           </div>
           ${placedItem.bits ? `<span class="text-mono text-xs" style="color: var(--color-text-muted); font-size: ${bitsFontSize}; font-weight: 600;">${placedItem.bits} ${this._config.unitLabel || 'bits'}</span>` : ''}
         </div>
@@ -336,8 +361,8 @@ class DragDropEngine {
               draggable="${this._locked ? 'false' : 'true'}"
             >
               <span class="dnd-item__label">${placedItem.label}</span>
-              ${isCorrect  ? '<span class="dnd-item__status">✓</span>' : ''}
-              ${isIncorrect ? '<span class="dnd-item__status">✕</span>' : ''}
+              ${isCorrect  ? '<span class="dnd-item__status">OK</span>' : ''}
+              ${isIncorrect ? '<span class="dnd-item__status">X</span>' : ''}
             </div>
           ` : `
             <div class="dnd-zone__placeholder">
@@ -356,7 +381,7 @@ class DragDropEngine {
     this._unbindEvents(); // clear any previous listeners first
 
     // Bind events to all draggable items (both in tray and placed in zones)
-    const allItems = document.querySelectorAll('.dnd-item[draggable="true"]');
+    const allItems = this._getDraggableItemElements();
     const zones = this._zonesContainer.querySelectorAll('.dnd-zone, .header-cell');
 
     allItems.forEach(el => {
@@ -375,7 +400,7 @@ class DragDropEngine {
     if (!this._itemsContainer || !this._zonesContainer) return;
     
     // Unbind from all draggable items (both in tray and placed in zones)
-    document.querySelectorAll('.dnd-item[draggable="true"]').forEach(el => {
+    this._getDraggableItemElements().forEach(el => {
       el.removeEventListener('dragstart', this._boundDragStart);
       el.removeEventListener('dragend',   this._boundDragEnd);
     });
@@ -385,6 +410,15 @@ class DragDropEngine {
       el.removeEventListener('dragleave', this._boundDragLeave);
       el.removeEventListener('drop',      this._boundDrop);
     });
+  }
+
+  _getDraggableItemElements() {
+    const scopedItems = new Set();
+    [this._itemsContainer, this._zonesContainer].forEach((container) => {
+      if (!container) return;
+      container.querySelectorAll('.dnd-item[draggable="true"]').forEach((el) => scopedItems.add(el));
+    });
+    return [...scopedItems];
   }
 
   // ─── Drag Handlers ─────────────────────────
@@ -517,7 +551,7 @@ class DragDropEngine {
     const banner = document.createElement('div');
     banner.className = 'dnd-complete-banner anim-bounce-in';
     banner.innerHTML = `
-      <span style="font-size:1.5rem;">🎉</span>
+      <span style="font-size:1.5rem;">DONE</span>
       <span>All correct! Well done.</span>
     `;
     this._zonesContainer.parentElement.prepend(banner);
@@ -533,7 +567,7 @@ class DragDropEngine {
     if (document.getElementById('dnd-styles')) return;
     const style = document.createElement('style');
     style.id = 'dnd-styles';
-    style.textContent = `
+    style.textContent = resolveInjectedCssTokens(`
       .dnd-root { display: flex; flex-direction: column; gap: 1.5rem; }
 
       /* Table Container */
@@ -707,7 +741,7 @@ class DragDropEngine {
         font-weight: 700;
         color: var(--color-success);
       }
-    `;
+    `);
     document.head.appendChild(style);
   }
 }

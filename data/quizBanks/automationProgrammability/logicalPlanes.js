@@ -1,0 +1,16 @@
+import { q } from './helpers.js';
+
+const logicalPlanesBank = [
+  q('d6-6-2-q1', 'Which plane is responsible for forwarding traffic?', ['Data plane', 'Control plane', 'Management plane', 'Application plane'], 0, 'easy', 'The data plane is responsible for forwarding traffic.'),
+  q('d6-6-2-q2', 'Which plane is responsible for routing decisions and topology logic?', ['Data plane', 'Control plane', 'Management plane', 'Physical plane'], 1, 'easy', 'The control plane handles routing logic and decision-making.'),
+  q('d6-6-2-q3', 'Which plane is associated with configuration, monitoring, and administration?', ['Data plane', 'Control plane', 'Management plane', 'Session plane'], 2, 'easy', 'The management plane is associated with configuration and administration.'),
+  q('d6-6-2-q4', 'In a traditional network device, what is commonly true?', ['Control and forwarding logic often reside on the device together', 'The control plane is always externalized', 'The management plane replaces the data plane', 'No plane model applies'], 0, 'medium', 'Traditional devices commonly hold control and forwarding logic together on the box.'),
+  q('d6-6-2-q5', 'Why is the logical-plane model useful?', ['It helps classify tools, protocols, and failure domains', 'It disables APIs', 'It replaces security policy', 'It is only for exam memorization'], 0, 'medium', 'The plane model helps engineers classify what a system is doing and where a problem belongs.'),
+  q('d6-6-2-q6', 'Which statement best fits the management plane?', ['It includes CLI, APIs, telemetry, and administrative access', 'It forwards packets at wire speed only', 'It performs SPF calculations only', 'It exists only in SDN controllers'], 0, 'medium', 'The management plane includes configuration, monitoring, APIs, and other administrative interfaces.'),
+  q('d6-6-2-q7', 'Why does SDN make the plane model especially useful?', ['Because control behavior is discussed as more centralized than in traditional designs', 'Because SDN removes the data plane', 'Because SDN eliminates management access', 'Because SDN uses only Layer 2'], 0, 'medium', 'SDN centralization is easiest to explain using the plane model.'),
+  q('d6-6-2-q8', 'If a problem is about API access to a controller, which plane is the best first classification?', ['Management plane', 'Data plane', 'Physical layer', 'Collision domain'], 0, 'medium', 'API access belongs to the management-plane conversation.'),
+  q('d6-6-2-q9', 'Which statement best compares the data and control planes?', ['The data plane forwards traffic, while the control plane decides how forwarding knowledge is built and maintained', 'The data plane manages users, while the control plane handles cabling', 'They are identical', 'The control plane forwards all traffic directly'], 0, 'hard', 'The data plane forwards, while the control plane decides and maintains forwarding knowledge.'),
+  q('d6-6-2-q10', 'What is the best summary of the logical planes?', ['They separate forwarding, decision-making, and administration into distinct functions', 'They replace routing protocols', 'They only matter in wireless', 'They only describe hardware'], 0, 'easy', 'The plane model separates forwarding, decision-making, and administration into distinct functions.'),
+];
+
+export default logicalPlanesBank;

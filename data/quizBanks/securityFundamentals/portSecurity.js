@@ -1,0 +1,16 @@
+import { q } from './helpers.js';
+
+const portSecurityBank = [
+  q('d5-5-9-q1', 'What does Port Security limit on a switchport?', ['Allowed MAC-address behavior', 'Only IP routes', 'Only DNS records', 'Only NTP peers'], 0, 'easy', 'Port Security limits which MAC addresses may use the port.'),
+  q('d5-5-9-q2', 'Why is Port Security especially useful on access ports?', ['The expected number of devices is usually small and predictable', 'Access ports always carry routing protocols', 'Access ports disable MAC learning', 'Access ports cannot use ACLs'], 0, 'medium', 'Access ports usually have a predictable number of endpoints, making Port Security practical there.'),
+  q('d5-5-9-q3', 'What is sticky MAC learning?', ['The switch learns and retains observed secure MAC addresses automatically', 'The switch disables all learning', 'The switch converts MACs into IPs', 'The switch creates GRE tunnels'], 0, 'easy', 'Sticky learning allows the switch to learn and retain secure MAC addresses automatically.'),
+  q('d5-5-9-q4', 'Which violation mode can drive the port into a shutdown/err-disabled style state?', ['Shutdown', 'Notify', 'Warn-only', 'Allow'], 0, 'easy', 'Shutdown is the violation mode most associated with err-disable style behavior.'),
+  q('d5-5-9-q5', 'Why can Port Security help with MAC flooding risk?', ['It constrains unexpected MAC learning on the port', 'It changes the routing protocol AD', 'It creates SNMPv3 users', 'It encrypts ARP'], 0, 'medium', 'By limiting acceptable MAC behavior, Port Security can reduce some CAM-table abuse scenarios.'),
+  q('d5-5-9-q6', 'What is a static secure MAC?', ['An explicitly defined allowed MAC address', 'A dynamic DHCP binding', 'A temporary NAT mapping', 'A DNS PTR record'], 0, 'medium', 'A static secure MAC is explicitly configured as an allowed address on the port.'),
+  q('d5-5-9-q7', 'Why does the maximum secure MAC count matter?', ['It should match the expected device count on the port', 'It always must be 132', 'It changes the VLAN ID', 'It determines the router ID'], 0, 'medium', 'The maximum count should align with the expected number of valid devices behind the port.'),
+  q('d5-5-9-q8', 'What operational clue may indicate a Port Security policy breach?', ['The port enters err-disabled/shutdown-style behavior', 'The NTP stratum decreases', 'The DHCP lease doubles', 'The DNS TTL disappears'], 0, 'easy', 'Err-disable or shutdown-style behavior is a common clue of a Port Security violation.'),
+  q('d5-5-9-q9', 'Which statement best compares static and sticky Port Security?', ['Static is explicitly defined; sticky learns allowed MACs more automatically', 'Sticky disables learning permanently', 'Static works only on trunks', 'They are unrelated to secure MAC behavior'], 0, 'medium', 'Static is explicitly configured, while sticky learns and retains allowed MACs automatically.'),
+  q('d5-5-9-q10', 'What is the best summary of Port Security?', ['It constrains expected MAC behavior at the access edge and defines what happens on violations', 'It encrypts wireless traffic', 'It replaces DHCP Snooping', 'It is only for WAN routers'], 0, 'hard', 'Port Security constrains switchport MAC behavior and applies defined policy when the behavior is violated.'),
+];
+
+export default portSecurityBank;

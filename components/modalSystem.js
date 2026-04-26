@@ -65,7 +65,7 @@ class ModalSystem {
               background:none; border:none; cursor:pointer;
               color:var(--color-text-muted); font-size:1.25rem; line-height:1;
               padding:0.25rem;
-            " aria-label="Close modal">✕</button>
+            " aria-label="Close modal">X</button>
           </div>
           <div class="modal-body" id="${bodyId}">${body}</div>
           ${actions.length > 0 ? `

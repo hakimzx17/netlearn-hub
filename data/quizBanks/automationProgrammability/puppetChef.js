@@ -1,0 +1,16 @@
+import { q } from './helpers.js';
+
+const puppetChefBank = [
+  q('d6-6-12-q1', 'Why are Puppet and Chef commonly compared together?', ['They are both associated with configuration-management thinking', 'They are both routing protocols', 'They both replace APIs', 'They are both wireless security standards'], 0, 'easy', 'Puppet and Chef are commonly compared because both are associated with configuration-management approaches.'),
+  q('d6-6-12-q2', 'What is a common high-level distinction between Puppet/Chef and classic Ansible?', ['Puppet and Chef are more strongly associated with agent-based thinking', 'Puppet and Chef are agentless by default while Ansible is not', 'Puppet and Chef are only for VLANs', 'There is no distinction'], 0, 'medium', 'Puppet and Chef are more strongly associated with agent-based models than classic Ansible.'),
+  q('d6-6-12-q3', 'What authoring style is most associated with Ansible in this comparison matrix?', ['YAML playbooks', 'Manifest DSL only', 'Ruby recipes only', 'XML tags only'], 0, 'easy', 'Ansible is most strongly associated with YAML playbooks.'),
+  q('d6-6-12-q4', 'What authoring style is most associated with Chef in this curriculum comparison?', ['Recipe / Ruby-DSL-style authoring', 'Only HCL', 'Only JSON primitives', 'Only REST URIs'], 0, 'medium', 'Chef is associated with recipe-style, Ruby-DSL-oriented authoring.'),
+  q('d6-6-12-q5', 'What authoring style is most associated with Puppet here?', ['Manifest / DSL-style authoring', 'Only YAML playbooks', 'Only bearer tokens', 'Only DHCP options'], 0, 'medium', 'Puppet is associated with manifest / DSL-style authoring.'),
+  q('d6-6-12-q6', 'Which tool in the comparison matrix is associated with declarative provisioning?', ['Terraform', 'Chef', 'Puppet', 'Syslog'], 0, 'easy', 'Terraform is the declarative provisioning tool in the matrix.'),
+  q('d6-6-12-q7', 'Why is language/authoring style useful in tool classification?', ['It helps distinguish similar automation tools by how workflows are expressed', 'It replaces the need to know the tool purpose', 'It only matters for routing protocols', 'It is unrelated to automation'], 0, 'medium', 'Language and authoring style help distinguish tools that may otherwise sound similar.'),
+  q('d6-6-12-q8', 'Which clue is a strong first differentiator when classifying Puppet/Chef versus Ansible?', ['Agent behavior', 'Syslog severity', 'NTP stratum', 'Wildcard mask'], 0, 'medium', 'Agent behavior is one of the strongest first clues in the matrix.'),
+  q('d6-6-12-q9', 'What is the best summary of the comparison matrix approach?', ['Use language, agent model, and workflow style together to identify the best conceptual fit', 'Only memorize vendor names', 'Ignore the workflow', 'Assume all automation tools are equivalent'], 0, 'hard', 'The matrix works best when language, agent model, and workflow style are used together.'),
+  q('d6-6-12-q10', 'What is the best overall takeaway from comparing Puppet, Chef, Ansible, and Terraform?', ['Different tools fit different automation problems, so classification matters', 'One tool always replaces all the others', 'Only infrastructure provisioning matters', 'Only YAML matters'], 0, 'hard', 'Different tools fit different automation problems, so classification matters.'),
+];
+
+export default puppetChefBank;

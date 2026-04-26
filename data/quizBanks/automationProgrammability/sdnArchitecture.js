@@ -1,0 +1,16 @@
+import { q } from './helpers.js';
+
+const sdnArchitectureBank = [
+  q('d6-6-3-q1', 'What is a defining trait of SDN architecture?', ['Centralized control and programmable behavior', 'Only Layer 2 switching', 'No APIs at all', 'No forwarding devices'], 0, 'easy', 'SDN is defined by centralized control logic and programmable behavior.'),
+  q('d6-6-3-q2', 'Which SDN layer commonly expresses intent or consumes services?', ['Application layer', 'Infrastructure layer', 'Data-link layer', 'Physical layer'], 0, 'easy', 'The application layer expresses intent or consumes network services.'),
+  q('d6-6-3-q3', 'Which SDN layer translates policy and maintains centralized network logic?', ['Application layer', 'Control layer', 'Infrastructure layer', 'Transport layer'], 1, 'easy', 'The control layer is where centralized network logic is maintained.'),
+  q('d6-6-3-q4', 'Which SDN layer is responsible for forwarding traffic on the devices?', ['Infrastructure layer', 'Application layer', 'Control layer', 'Session layer'], 0, 'easy', 'The infrastructure layer contains the forwarding devices.'),
+  q('d6-6-3-q5', 'What does northbound refer to in SDN discussions?', ['Interfaces from the controller toward applications', 'Interfaces from the controller toward devices', 'The fastest forwarding path', 'The WAN underlay'], 0, 'medium', 'Northbound interfaces face applications from the controller perspective.'),
+  q('d6-6-3-q6', 'What does southbound refer to in SDN discussions?', ['Interfaces from the controller toward forwarding devices', 'Interfaces from users to APIs', 'An NTP peering method', 'A DHCP relay feature'], 0, 'medium', 'Southbound interfaces connect the controller to the devices it manages.'),
+  q('d6-6-3-q7', 'Why is the controller the key reference point for northbound and southbound naming?', ['Because the directions are defined relative to the controller’s position in the model', 'Because the controller is always in the cloud', 'Because only controllers use APIs', 'Because applications are always below devices'], 0, 'medium', 'Northbound and southbound are named relative to the controller’s position in the architecture.'),
+  q('d6-6-3-q8', 'What best distinguishes SDN from a traditional distributed design?', ['Control logic is described as more centralized in SDN', 'SDN removes the need for forwarding devices', 'Traditional networks have no control plane', 'Traditional networks cannot use policies'], 0, 'medium', 'SDN is often distinguished by more centralized control logic than traditional distributed designs.'),
+  q('d6-6-3-q9', 'Which sequence matches the common SDN three-layer model from top to bottom?', ['Application → Control → Infrastructure', 'Infrastructure → Control → Application', 'Control → Infrastructure → Application', 'Data → Application → Control'], 0, 'medium', 'The common SDN three-layer model is Application, Control, then Infrastructure.'),
+  q('d6-6-3-q10', 'What is the best summary of SDN architecture?', ['Applications express intent, the controller translates it, and devices forward traffic', 'Every device acts independently with no coordination', 'Only the application layer matters', 'The data plane disappears'], 0, 'hard', 'That is the clearest high-level summary of common SDN architecture thinking.'),
+];
+
+export default sdnArchitectureBank;

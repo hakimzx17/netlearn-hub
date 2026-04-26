@@ -14,29 +14,67 @@ import { createNetworkDiagram } from '../components/networkDiagram.js';
 import { stateManager }         from '../js/stateManager.js';
 import { sleep, showToast }     from '../utils/helperFunctions.js';
 
-// ── Full topology: client → switch → firewall → router → ISP → web ───────────
+// ── Reworked topology: LAN-A → R1/R2/R3/R4 transit → LAN-B ───────────────────
 const TOPOLOGY = {
+  zones: [
+    {
+      id: 'lan-a',
+      x: 20,
+      y: 120,
+      width: 360,
+      height: 250,
+      title: 'LAN-A',
+      subnet: '192.168.1.0/24',
+      fill: 'rgba(146, 215, 102, 0.14)',
+      stroke: 'rgba(146, 215, 102, 0.55)',
+      strokeDasharray: '4 3',
+    },
+    {
+      id: 'lan-b',
+      x: 1030,
+      y: 120,
+      width: 320,
+      height: 250,
+      title: 'LAN-B',
+      subnet: '93.184.216.0/24',
+      fill: 'rgba(123, 216, 255, 0.14)',
+      stroke: 'rgba(123, 216, 255, 0.55)',
+      strokeDasharray: '4 3',
+    },
+  ],
   nodes: [
-    { id: 'client',  type: 'pc',     label: 'Your PC',     x: 50,  y: 200, ip: '192.168.1.10', mac: 'AA:BB:CC:11:22:33' },
-    { id: 'switch1', type: 'switch', label: 'Layer-2 Switch', x: 170, y: 200, ip: null },
-    { id: 'fw',      type: 'router', label: 'Firewall',   x: 290, y: 200, ip: '192.168.1.1',  mac: 'AA:BB:CC:44:55:66' },
-    { id: 'gw',      type: 'router', label: 'Home Router\n(NAT)', x: 410, y: 200, ip: '192.168.1.254', mac: 'AA:BB:CC:77:88:99' },
-    { id: 'isp1',    type: 'router', label: 'ISP Edge\nRouter',  x: 560, y: 150, ip: '203.0.113.1',   mac: '00:11:22:AA:BB:CC' },
-    { id: 'isp2',    type: 'router', label: 'ISP Core\nRouter',  x: 700, y: 200, ip: '203.0.113.2',   mac: '00:11:22:DD:EE:FF' },
-    { id: 'isp3',    type: 'router', label: 'ISP Border', x: 840, y: 150, ip: '203.0.113.3',   mac: '00:11:22:11:22:33' },
-    { id: 'web',     type: 'server', label: 'Web Server', x: 980, y: 200, ip: '93.184.216.34', mac: 'BB:CC:DD:EE:FF:00' },
-    { id: 'dns',     type: 'server', label: 'DNS Server', x: 560, y: 300, ip: '8.8.8.8',       mac: 'CC:DD:EE:11:22:33' },
+    { id: 'client',  type: 'pc',     label: 'PC1', x: 90,  y: 182, ip: '192.168.1.10', mac: 'AA:BB:CC:11:22:33' },
+    { id: 'client2', type: 'pc',     label: 'PC2', x: 90,  y: 306, ip: '192.168.1.12' },
+    { id: 'switch1', type: 'switch', label: 'SW1', x: 270, y: 244 },
+    { id: 'fw',      type: 'router', label: 'R1 / FW', x: 460, y: 244, ip: '192.168.1.254', mac: 'AA:BB:CC:44:55:66' },
+    { id: 'gw',      type: 'router', label: 'R2 / NAT', x: 640, y: 170, ip: '10.10.10.2', mac: 'AA:BB:CC:77:88:99' },
+    { id: 'isp1',    type: 'router', label: 'R3', x: 820, y: 244, ip: '203.0.113.1', mac: '00:11:22:AA:BB:CC' },
+    { id: 'isp2',    type: 'router', label: 'R4', x: 1000, y: 170, ip: '203.0.113.2', mac: '00:11:22:DD:EE:FF' },
+    { id: 'isp3',    type: 'switch', label: 'SW2', x: 1180, y: 244, ip: '203.0.113.3', mac: '00:11:22:11:22:33' },
+    { id: 'web',     type: 'pc',     label: 'PC3 / Web', x: 1300, y: 182, ip: '93.184.216.34', mac: 'BB:CC:DD:EE:FF:00' },
+    { id: 'web2',    type: 'pc',     label: 'PC4', x: 1300, y: 306, ip: '93.184.216.44' },
+    { id: 'dns',     type: 'server', label: 'DNS', x: 640, y: 62, ip: '8.8.8.8', mac: 'CC:DD:EE:11:22:33', labelY: -28 },
   ],
   links: [
-    { from: 'client',  to: 'switch1', label: 'Ethernet' },
-    { from: 'switch1', to: 'fw',      label: 'Trunk' },
-    { from: 'fw',      to: 'gw',      label: 'WAN' },
-    { from: 'gw',      to: 'isp1',    label: 'ISP Link' },
-    { from: 'gw',      to: 'dns',     label: 'DNS Query' },
-    { from: 'isp1',    to: 'isp2',   label: 'Backbone' },
-    { from: 'isp2',    to: 'isp3',   label: 'Transit' },
-    { from: 'isp3',    to: 'web',    label: 'Peering' },
+    { from: 'client',  to: 'switch1', label: 'G0/1' },
+    { from: 'client2', to: 'switch1', label: 'G0/2' },
+    { from: 'switch1', to: 'fw',      label: 'G0/0' },
+    { from: 'fw',      to: 'gw',      label: 'G0/0' },
+    { from: 'gw',      to: 'isp1',    label: 'G0/1' },
+    { from: 'isp1',    to: 'isp2',    label: 'G0/0' },
+    { from: 'isp2',    to: 'isp3',    label: 'G0/1' },
+    { from: 'isp3',    to: 'web',     label: 'G0/1' },
+    { from: 'isp3',    to: 'web2',    label: 'G0/2' },
+    { from: 'gw',      to: 'dns',     label: 'G0/2' },
   ],
+};
+
+const PATHS = {
+  dnsOut: ['client', 'switch1', 'fw', 'gw', 'dns'],
+  dnsIn: ['dns', 'gw', 'fw', 'switch1', 'client'],
+  outbound: ['client', 'switch1', 'fw', 'gw', 'isp1', 'isp2', 'isp3', 'web'],
+  inbound: ['web', 'isp3', 'isp2', 'isp1', 'gw', 'fw', 'switch1', 'client'],
+  transitToWeb: ['gw', 'isp1', 'isp2', 'isp3', 'web'],
 };
 
 // Scenario definitions with unique characteristics
@@ -118,7 +156,7 @@ const HTTP_JOURNEY_STEPS = [
     phase: 'Network',
     title: '6 — Switch MAC Learning',
     log: 'Switch receives frame. Unknown destination MAC - floods to all ports. Records source MAC in table.',
-    detail: 'MAC Table: Fa0/1 → AA:BB:CC:11:22:33',
+    detail: 'MAC Table: G0/1 → AA:BB:CC:11:22:33',
     action: 'switch_learn',
     layer: 2,
   },
@@ -243,8 +281,8 @@ const ICMP_JOURNEY_STEPS = [
   {
     phase: 'Network',
     title: '3 — Switch MAC Learning',
-    log: 'Switch learns PC MAC on port Fa0/1. Unknown dest - floods to all ports except source.',
-    detail: 'MAC Table: Fa0/1 → AA:BB:CC:11:22:33',
+    log: 'Switch learns PC MAC on port G0/1. Unknown dest - floods to all ports except source.',
+    detail: 'MAC Table: G0/1 → AA:BB:CC:11:22:33',
     action: 'switch_learn',
     layer: 2,
   },
@@ -370,7 +408,7 @@ const FTP_JOURNEY_STEPS = [
     phase: 'Network',
     title: '5 — Switch MAC Learning',
     log: 'Switch learns PC MAC. Unknown destination - floods frame.',
-    detail: 'MAC Table: Fa0/1 → AA:BB:CC:11:22:33',
+    detail: 'MAC Table: G0/1 → AA:BB:CC:11:22:33',
     action: 'switch_learn',
     layer: 2,
   },
@@ -622,7 +660,7 @@ class PacketJourneySimulator {
         <div class="module-header__breadcrumb">
           <a href="#/">Home</a> › <span>Simulations</span>
         </div>
-        <h1 class="module-header__title">🔬 Packet Journey Simulator</h1>
+        <h1 class="module-header__title">LAB Packet Journey Simulator</h1>
         <p class="module-header__description">
           ${scenarioDescriptions[this._currentScenario]}
         </p>
@@ -630,17 +668,17 @@ class PacketJourneySimulator {
         <!-- Key Differences Bar -->
         <div class="concept-bar" style="display:flex; gap:0.75rem; flex-wrap:wrap; margin-top:0.5rem; padding:0.5rem; background:rgba(${this._currentScenario === 'ping' ? '255,102,0' : this._currentScenario === 'ftp' ? '0,170,255' : '0,255,136'},0.08); border-radius:var(--radius-sm); border:1px solid rgba(${this._currentScenario === 'ping' ? '255,102,0' : this._currentScenario === 'ftp' ? '0,170,255' : '0,255,136'},0.2);">
           ${this._currentScenario === 'ping' ? `
-            <div style="font-size:var(--text-xs);"><span style="color:#ff6600;">⚡ ICMP:</span> No ports! Uses ID field instead</div>
-            <div style="font-size:var(--text-xs);"><span style="color:#ff6600;">🔄 Type:</span> 8=Request, 0=Reply</div>
-            <div style="font-size:var(--text-xs);"><span style="color:#ff6600;">🚫 No TCP:</span> Connectionless!</div>
+            <div style="font-size:var(--text-xs);"><span style="color:#ff6600;">FAST ICMP:</span> No ports! Uses ID field instead</div>
+            <div style="font-size:var(--text-xs);"><span style="color:#ff6600;">CYCLE Type:</span> 8=Request, 0=Reply</div>
+            <div style="font-size:var(--text-xs);"><span style="color:#ff6600;">BLOCK No TCP:</span> Connectionless!</div>
           ` : this._currentScenario === 'ftp' ? `
-            <div style="font-size:var(--text-xs);"><span style="color:#00aaff;">📞 Port 21:</span> Control channel (commands)</div>
-            <div style="font-size:var(--text-xs);"><span style="color:#00aaff;">📂 Port 20:</span> Data channel (file)</div>
-            <div style="font-size:var(--text-xs);"><span style="color:#00aaff;">🔀 2 TCP:</span> Separate connections!</div>
+            <div style="font-size:var(--text-xs);"><span style="color:#00aaff;">CTRL Port 21:</span> Control channel (commands)</div>
+            <div style="font-size:var(--text-xs);"><span style="color:#00aaff;">DATA Port 20:</span> Data channel (file)</div>
+            <div style="font-size:var(--text-xs);"><span style="color:#00aaff;">SW 2 TCP:</span> Separate connections!</div>
           ` : `
-            <div style="font-size:var(--text-xs);"><span style="color:#00ff88;">🔗 Port 80:</span> HTTP traffic</div>
-            <div style="font-size:var(--text-xs);"><span style="color:#00ff88;">✓ TCP:</span> Reliable delivery</div>
-            <div style="font-size:var(--text-xs);"><span style="color:#00ff88;">🔄 3-Way:</span> SYN → SYN-ACK → ACK</div>
+            <div style="font-size:var(--text-xs);"><span style="color:#00ff88;">L2 Port 80:</span> HTTP traffic</div>
+            <div style="font-size:var(--text-xs);"><span style="color:#00ff88;">OK TCP:</span> Reliable delivery</div>
+            <div style="font-size:var(--text-xs);"><span style="color:#00ff88;">CYCLE 3-Way:</span> SYN → SYN-ACK → ACK</div>
           `}
         </div>
       </div>
@@ -656,9 +694,9 @@ class PacketJourneySimulator {
         `).join('')}
       </div>
 
-      <div class="layout-main-sidebar" style="grid-template-columns:1fr 320px;">
+      <div class="layout-main-sidebar" style="grid-template-columns:minmax(0, 1fr); gap:1rem;">
         <div>
-          <div class="sim-canvas" id="pj-canvas" style="min-height:320px;"></div>
+          <div class="sim-canvas" id="pj-canvas" style="min-height:520px;"></div>
 
           <!-- Packet Visualization Bar -->
           <div id="pj-packet-bar" style="
@@ -706,7 +744,7 @@ class PacketJourneySimulator {
 
           <div class="control-bar" style="margin-top:0.75rem;">
             <button class="btn btn-primary" id="pj-step-btn">▶ Step</button>
-            <button class="btn btn-secondary" id="pj-auto-btn">⚡ Auto Play</button>
+            <button class="btn btn-secondary" id="pj-auto-btn">FAST Auto Play</button>
             <button class="btn btn-ghost" id="pj-reset-btn">↺ Reset</button>
             <span class="packet-data-label" style="margin-left:auto;" id="pj-step-counter">
               Step 0 / ${journeySteps.length}
@@ -716,7 +754,7 @@ class PacketJourneySimulator {
           <!-- Step Info Panel -->
           <div class="info-panel" style="margin-top:0.75rem;">
             <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.5rem; flex-wrap:wrap;">
-              <div class="info-panel__title" style="margin:0;" id="pj-step-title">📦 Ready to Start</div>
+              <div class="info-panel__title" style="margin:0;" id="pj-step-title">PKT Ready to Start</div>
               <span id="pj-phase-badge" class="badge badge-cyan" style="font-size:var(--text-xs);">Start</span>
               <span id="pj-layer-badge" class="badge" style="font-size:var(--text-xs); background:#333;">Layer: -</span>
             </div>
@@ -734,7 +772,7 @@ class PacketJourneySimulator {
               display:none;
             ">
               <div class="info-panel__title" style="margin-bottom:0.25rem;" id="pj-detail-header">
-                📋 Packet Header Details
+                LOG Packet Header Details
               </div>
               <div class="packet-data-value" style="line-height:1.6;" id="pj-detail-content">
                 --
@@ -743,11 +781,11 @@ class PacketJourneySimulator {
           </div>
         </div>
 
-        <div>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:1rem;">
           <!-- Packet Header Visualization -->
           <div class="card" style="margin-bottom:1rem;">
             <div class="info-panel__title" style="display:flex; align-items:center; gap:0.5rem;">
-              📦 Current Packet
+              PKT Current Packet
               <span id="pj-packet-type" class="badge badge-purple" style="font-size:9px;">-</span>
             </div>
             <div id="pj-header-viz" style="
@@ -783,7 +821,7 @@ class PacketJourneySimulator {
           <!-- Protocol-Specific Info Panel -->
           <div class="info-panel" style="margin-bottom:1rem; border-left:3px solid ${scenario.color};">
             <div class="info-panel__title" style="display:flex; align-items:center; gap:0.5rem;">
-              ${this._currentScenario === 'ping' ? '🎯 ICMP Protocol' : this._currentScenario === 'ftp' ? '📂 FTP Protocol' : '🌐 HTTP Protocol'}
+              ${this._currentScenario === 'ping' ? 'FOCUS ICMP Protocol' : this._currentScenario === 'ftp' ? 'DATA FTP Protocol' : 'NET HTTP Protocol'}
             </div>
             <div class="step-explanation">
               ${this._currentScenario === 'ping' ? `
@@ -805,7 +843,7 @@ class PacketJourneySimulator {
 
           <!-- NAT Table -->
           <div class="info-panel">
-            <div class="info-panel__title">🔄 NAT Translation Table</div>
+            <div class="info-panel__title">CYCLE NAT Translation Table</div>
             <div class="packet-data-label" style="margin-bottom:0.4rem; display:flex; justify-content:space-between; border-bottom:1px solid var(--color-border); padding-bottom:0.3rem;">
               <span>Inside Local</span><span>Outside Global</span>
             </div>
@@ -816,7 +854,7 @@ class PacketJourneySimulator {
 
           <!-- ARP Cache -->
           <div class="info-panel" style="margin-top:1rem;">
-            <div class="info-panel__title">📡 ARP Cache</div>
+            <div class="info-panel__title">ARP ARP Cache</div>
             <div class="packet-data-label" style="margin-bottom:0.4rem; border-bottom:1px solid var(--color-border); padding-bottom:0.3rem;">
               IP Address → MAC Address
             </div>
@@ -827,7 +865,7 @@ class PacketJourneySimulator {
 
           <!-- Switch MAC Table -->
           <div class="info-panel" style="margin-top:1rem;">
-            <div class="info-panel__title">🔀 Switch MAC Table</div>
+            <div class="info-panel__title">SW Switch MAC Table</div>
             <div class="packet-data-label" style="margin-bottom:0.4rem; border-bottom:1px solid var(--color-border); padding-bottom:0.3rem;">
               Port → MAC Address
             </div>
@@ -842,7 +880,13 @@ class PacketJourneySimulator {
     this._diagram.init(
       this.container.querySelector('#pj-canvas'),
       TOPOLOGY,
-      { width: 1020, height: 350 }
+      {
+        width: 1400,
+        height: 520,
+        labelMode: 'compact',
+        compactPortLabels: true,
+        linkBadge: false,
+      }
     );
 
     this._bindControls();
@@ -1153,7 +1197,7 @@ class PacketJourneySimulator {
           break;
 
         case 'dns_query_travel':
-          await this._animatePacketSafe(['client', 'switch1', 'fw', 'gw', 'dns'], { type: 'data', label: 'DNS Query', speed });
+          await this._animatePacketSafe(PATHS.dnsOut, { type: 'data', label: 'DNS Query', speed });
           this._highlightNodeSafe('dns', 'hop', 1000);
           this._arpCache['8.8.8.8'] = 'CC:DD:EE:11:22:33';
           this._updateArpTable();
@@ -1161,7 +1205,7 @@ class PacketJourneySimulator {
           break;
 
         case 'dns_reply':
-          await this._animatePacketSafe(['dns', 'gw', 'fw', 'switch1', 'client'], { type: 'data', label: 'DNS Answer', speed });
+          await this._animatePacketSafe(PATHS.dnsIn, { type: 'data', label: 'DNS Answer', speed });
           this._highlightNodeSafe('client', 'success', 1000);
           await this._sleepSafe(600);
           break;
@@ -1173,12 +1217,12 @@ class PacketJourneySimulator {
           break;
 
         case 'icmp_echo_reply':
-          await this._animatePacketSafe(['web', 'isp3', 'isp2', 'isp1', 'gw', 'fw', 'switch1', 'client'], { type: 'icmp', label: 'Echo Reply', speed: 320 });
+          await this._animatePacketSafe(PATHS.inbound, { type: 'icmp', label: 'Echo Reply', speed: 320 });
           await this._sleepSafe(300);
           break;
 
         case 'icmp_return':
-          await this._animatePacketSafe(['web', 'isp3', 'isp2', 'isp1', 'gw', 'fw', 'switch1', 'client'], { type: 'icmp', label: 'ICMP Reply', speed: 300 });
+          await this._animatePacketSafe(PATHS.inbound, { type: 'icmp', label: 'ICMP Reply', speed: 300 });
           await this._sleepSafe(300);
           break;
 
@@ -1189,17 +1233,17 @@ class PacketJourneySimulator {
 
         // FTP Specific Actions
         case 'ftp_user':
-          await this._animatePacketSafe(['client', 'switch1', 'fw', 'gw', 'isp1', 'isp2', 'isp3', 'web'], { type: 'data', label: 'USER anon', speed: 300 });
+          await this._animatePacketSafe(PATHS.outbound, { type: 'data', label: 'USER anon', speed: 300 });
           await this._sleepSafe(400);
           break;
 
         case 'ftp_pass':
-          await this._animatePacketSafe(['client', 'switch1', 'fw', 'gw', 'isp1', 'isp2', 'isp3', 'web'], { type: 'data', label: 'PASS ****', speed: 300 });
+          await this._animatePacketSafe(PATHS.outbound, { type: 'data', label: 'PASS ****', speed: 300 });
           await this._sleepSafe(400);
           break;
 
         case 'ftp_pasv':
-          await this._animatePacketSafe(['web', 'isp3', 'isp2', 'isp1', 'gw', 'fw', 'switch1', 'client'], { type: 'data', label: '227 PASV', speed: 300 });
+          await this._animatePacketSafe(PATHS.inbound, { type: 'data', label: '227 PASV', speed: 300 });
           await this._sleepSafe(400);
           break;
 
@@ -1209,23 +1253,23 @@ class PacketJourneySimulator {
           break;
 
         case 'ftp_retr':
-          await this._animatePacketSafe(['client', 'switch1', 'fw', 'gw', 'isp1', 'isp2', 'isp3', 'web'], { type: 'data', label: 'RETR file', speed: 280 });
+          await this._animatePacketSafe(PATHS.outbound, { type: 'data', label: 'RETR file', speed: 280 });
           await this._sleepSafe(300);
           break;
 
         case 'ftp_transfer':
-          await this._animatePacketSafe(['web', 'isp3', 'isp2', 'isp1', 'gw', 'fw', 'switch1', 'client'], { type: 'data', label: 'FILE DATA', speed: 260 });
+          await this._animatePacketSafe(PATHS.inbound, { type: 'data', label: 'FILE DATA', speed: 260 });
           await this._sleepSafe(300);
           break;
 
         case 'ftp_complete':
-          await this._animatePacketSafe(['web', 'isp3', 'isp2', 'isp1', 'gw', 'fw', 'switch1', 'client'], { type: 'data', label: '226 OK', speed: 280 });
+          await this._animatePacketSafe(PATHS.inbound, { type: 'data', label: '226 OK', speed: 280 });
           await this._sleepSafe(400);
           break;
 
         case 'ftp_quit':
-          await this._animatePacketSafe(['client', 'switch1', 'fw', 'gw', 'isp1', 'isp2', 'isp3', 'web'], { type: 'data', label: 'QUIT', speed: 300 });
-          await this._animatePacketSafe(['web', 'isp3', 'isp2', 'isp1', 'gw', 'fw', 'switch1', 'client'], { type: 'data', label: '221 Bye', speed: 300 });
+          await this._animatePacketSafe(PATHS.outbound, { type: 'data', label: 'QUIT', speed: 300 });
+          await this._animatePacketSafe(PATHS.inbound, { type: 'data', label: '221 Bye', speed: 300 });
           this._natTable = {};
           this._updateNatTable();
           break;
@@ -1245,23 +1289,40 @@ class PacketJourneySimulator {
           // ARP Reply
           await this._animatePacketSafe(['fw', 'switch1'], { type: 'data', label: 'ARP Reply', speed: 350 });
           await this._animatePacketSafe(['switch1', 'client'], { type: 'data', label: 'ARP Reply', speed: 350 });
-          this._arpCache['192.168.1.1'] = 'AA:BB:CC:44:55:66';
-          this._macTable['AA:BB:CC:11:22:33'] = 'Fa0/1';
+          this._arpCache['192.168.1.254'] = 'AA:BB:CC:44:55:66';
+          this._macTable['AA:BB:CC:11:22:33'] = 'G0/1';
           this._updateMacTable();
           this._updateArpTable();
           await this._sleepSafe(400);
           break;
 
         case 'switch_learn':
-          this._macTable['AA:BB:CC:11:22:33'] = 'Fa0/1';
-          this._macTable['AA:BB:CC:44:55:66'] = 'Fa0/2';
+          // Show actual L2 forwarding from host through switch to first-hop router
+          await this._animatePacketSafe(['client', 'switch1'], {
+            type: 'data',
+            label: isPing ? 'ICMP Frame' : 'Data Frame',
+            speed: 340,
+          });
+          await this._animatePacketSafe(['switch1', 'fw'], {
+            type: 'data',
+            label: 'Switch Forward',
+            speed: 340,
+          });
+          this._macTable['AA:BB:CC:11:22:33'] = 'G0/1';
+          this._macTable['AA:BB:CC:44:55:66'] = 'G0/2';
           this._updateMacTable();
-          await this._sleepSafe(500);
+          await this._sleepSafe(260);
           break;
 
         case 'routing_gw':
+          // L3 handoff from R1/FW to NAT/next-hop decision router
+          await this._animatePacketSafe(['fw', 'gw'], {
+            type: isPing ? 'icmp' : 'data',
+            label: 'L3 Route Lookup',
+            speed: 380,
+          });
           this._highlightNodeSafe('gw', 'active', 1000);
-          await this._sleepSafe(500);
+          await this._sleepSafe(260);
           break;
 
         case 'nat_outbound':
@@ -1279,21 +1340,37 @@ class PacketJourneySimulator {
             this._natTable['192.168.1.10:54321'] = '203.0.113.100:40001';
           }
           this._updateNatTable();
-          await this._sleepSafe(800);
+          // After translation, packet exits toward ISP edge
+          await this._animatePacketSafe(['gw', 'isp1'], {
+            type: isPing ? 'icmp' : 'data',
+            label: isPing ? 'NAT ICMP Out' : 'NAT Out',
+            speed: 380,
+          });
+          await this._sleepSafe(260);
           break;
 
         case 'firewall_check':
+          await this._animatePacketSafe(['fw', 'gw'], {
+            type: isPing ? 'icmp' : 'data',
+            label: 'ACL Check',
+            speed: 360,
+          });
           this._highlightNodeSafe('fw', 'active', 1200);
-          await this._sleepSafe(600);
+          await this._sleepSafe(260);
           break;
 
         case 'isp_routing':
+          await this._animatePacketSafe(['gw', 'isp1', 'isp2'], {
+            type: isPing ? 'icmp' : 'data',
+            label: 'LPM Forward',
+            speed: 360,
+          });
           this._highlightNodeSafe('isp1', 'active', 800);
-          await this._sleepSafe(400);
+          await this._sleepSafe(260);
           break;
 
         case 'isp_traverse':
-          await this._animatePacketSafe(['gw', 'isp1', 'isp2', 'isp3', 'web'], { type: isPing ? 'icmp' : 'data', label: isPing ? 'ICMP Pkt' : 'IP Pkt', speed });
+          await this._animatePacketSafe(PATHS.transitToWeb, { type: isPing ? 'icmp' : 'data', label: isPing ? 'ICMP Pkt' : 'IP Pkt', speed });
           this._highlightNodeSafe('web', 'hop', 800);
           this._arpCache['93.184.216.34'] = 'BB:CC:DD:EE:FF:00';
           this._updateArpTable();
@@ -1307,7 +1384,7 @@ class PacketJourneySimulator {
           break;
 
         case 'tcp_synack':
-          await this._animatePacketSafe(['web', 'isp3', 'isp2', 'isp1', 'gw', 'switch1', 'client'], { type: 'data', label: isFTP ? 'SYN-ACK(21)' : 'SYN-ACK', speed: 320 });
+          await this._animatePacketSafe(PATHS.inbound, { type: 'data', label: isFTP ? 'SYN-ACK(21)' : 'SYN-ACK', speed: 320 });
           this._highlightNodeSafe('client', 'hop', 800);
           await this._sleepSafe(400);
           break;
@@ -1326,25 +1403,25 @@ class PacketJourneySimulator {
           break;
 
         case 'tcp_established':
-          await this._animatePacketSafe(['client', 'switch1', 'fw', 'gw', 'isp1', 'isp2', 'isp3', 'web'], { type: 'data', label: 'ACK', speed: 300 });
+          await this._animatePacketSafe(PATHS.outbound, { type: 'data', label: 'ACK', speed: 300 });
           this._highlightNodeSafe('web', 'success', 800);
           await this._sleepSafe(500);
           break;
 
         case 'http_request':
-          await this._animatePacketSafe(['client', 'switch1', 'fw', 'gw', 'isp1', 'isp2', 'isp3', 'web'], { type: 'data', label: 'HTTP GET', speed: 280 });
+          await this._animatePacketSafe(PATHS.outbound, { type: 'data', label: 'HTTP GET', speed: 280 });
           await this._sleepSafe(300);
           break;
 
         case 'http_response':
-          await this._animatePacketSafe(['web', 'isp3', 'isp2', 'isp1', 'gw', 'fw', 'switch1', 'client'], { type: 'data', label: 'HTTP 200', speed: 280 });
+          await this._animatePacketSafe(PATHS.inbound, { type: 'data', label: 'HTTP 200', speed: 280 });
           this._highlightNodeSafe('client', 'success', 2000);
           break;
 
         case 'tcp_close':
-          await this._animatePacketSafe(['client', 'web'], { type: 'data', label: 'FIN', speed: 400 });
-          await this._animatePacketSafe(['web', 'client'], { type: 'data', label: 'FIN+ACK', speed: 400 });
-          await this._animatePacketSafe(['client', 'web'], { type: 'data', label: 'ACK', speed: 400 });
+          await this._animatePacketSafe(PATHS.outbound, { type: 'data', label: 'FIN', speed: 400 });
+          await this._animatePacketSafe(PATHS.inbound, { type: 'data', label: 'FIN+ACK', speed: 400 });
+          await this._animatePacketSafe(PATHS.outbound, { type: 'data', label: 'ACK', speed: 400 });
           this._natTable = {};
           this._updateNatTable();
           break;
@@ -1357,9 +1434,9 @@ class PacketJourneySimulator {
 
   _onComplete() {
     const stepBtn = this.container.querySelector('#pj-step-btn');
-    if (stepBtn) { stepBtn.textContent = '✓ Complete'; stepBtn.disabled = true; }
+    if (stepBtn) { stepBtn.textContent = '✅ Complete'; stepBtn.disabled = true; }
 
-    showToast('🎉 Full packet journey complete! You now understand how data travels across networks.', 'success', 6000);
+    showToast('DONE Full packet journey complete! You now understand how data travels across networks.', 'success', 6000);
 
     stateManager.mergeState('userProgress', {
       completedModules: [...new Set([

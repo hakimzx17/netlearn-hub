@@ -316,7 +316,7 @@ export const QUESTIONS = [
     question: 'A company needs 5 subnets with at least 25 hosts each from 192.168.10.0/24. Which prefix accommodates this with minimum waste?',
     options: ['/25', '/26', '/27', '/28'],
     correctIndex: 2,
-    explanation: '/27 gives 30 usable hosts (≥25 ✓) and 8 subnets per /24 (≥5 ✓). /28 only gives 14 hosts (insufficient). /26 gives 62 hosts but only 4 subnets (insufficient count). /27 is the optimal choice.',
+    explanation: '/27 gives 30 usable hosts (≥25 OK) and 8 subnets per /24 (≥5 OK). /28 only gives 14 hosts (insufficient). /26 gives 62 hosts but only 4 subnets (insufficient count). /27 is the optimal choice.',
   },
   {
     id: 'sub-04',
@@ -357,7 +357,7 @@ export const QUESTIONS = [
     question: 'Using VLSM, you must allocate from 10.1.0.0/24 for: LAN-A (60 hosts), LAN-B (28 hosts), P2P Link (2 hosts). What prefix does LAN-A get?',
     options: ['/24', '/26', '/25', '/27'],
     correctIndex: 2,
-    explanation: 'LAN-A needs 60 hosts. /26 gives only 62 hosts... wait — /26 = 62 ✓. Actually /25 = 126 hosts. VLSM picks the smallest prefix that satisfies the need. For exactly 60 hosts: /26 = 62 usable ≥ 60 ✓. /26 is optimal (minimum waste). /25 wastes too many. Correct answer: /26.',
+    explanation: 'LAN-A needs 60 hosts. /26 gives only 62 hosts... wait — /26 = 62 OK. Actually /25 = 126 hosts. VLSM picks the smallest prefix that satisfies the need. For exactly 60 hosts: /26 = 62 usable ≥ 60 OK. /26 is optimal (minimum waste). /25 wastes too many. Correct answer: /26.',
   },
   {
     id: 'sub-08',

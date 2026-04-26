@@ -122,10 +122,10 @@ class VlsmDesignEngine {
       <!-- Mode toggle -->
       <div style="display:flex; gap:0.4rem; margin-bottom:1.5rem;">
         <button class="btn ${this._mode === 'designer' ? 'btn-primary' : 'btn-ghost'} vlsm-mode-btn" data-mode="designer">
-          🛠 Design Tool
+          TOOL Design Tool
         </button>
         <button class="btn ${this._mode === 'examples' ? 'btn-primary' : 'btn-ghost'} vlsm-mode-btn" data-mode="examples">
-          📚 Worked Examples
+          LEARN Worked Examples
         </button>
       </div>
 
@@ -172,7 +172,7 @@ class VlsmDesignEngine {
           </div>
 
           <div class="control-bar">
-            <button class="btn btn-primary" id="vlsm-allocate-btn">⚙ Allocate VLSM</button>
+            <button class="btn btn-primary" id="vlsm-allocate-btn">CONFIG Allocate VLSM</button>
             <button class="btn btn-ghost"   id="vlsm-clear-btn">↺ Clear</button>
           </div>
 
@@ -183,7 +183,7 @@ class VlsmDesignEngine {
         <!-- Right: Info panel -->
         <div>
           <div class="info-panel">
-            <div class="info-panel__title">📐 VLSM Algorithm</div>
+            <div class="info-panel__title">VLSM VLSM Algorithm</div>
             <p class="text-secondary text-sm" style="margin-bottom:0.75rem; line-height:1.8;">
               VLSM uses a <strong>largest-first</strong> allocation strategy:
             </p>
@@ -255,7 +255,7 @@ class VlsmDesignEngine {
         <span style="font-size:var(--text-xs); color:var(--color-text-muted); font-family:var(--font-mono);">hosts</span>
         <button class="vlsm-remove-btn btn btn-ghost"
           style="padding:0.2rem 0.4rem; font-size:var(--text-xs); color:var(--color-error); border-color:var(--color-error)44;"
-          data-index="${i}">✕</button>
+          data-index="${i}">X</button>
       </div>
     `).join('');
   }
@@ -304,7 +304,7 @@ class VlsmDesignEngine {
 
       ${allocError ? `
         <div style="padding:1rem; background:rgba(255,68,68,0.1); border:1px solid var(--color-error); border-radius:var(--radius-md); color:var(--color-error);">
-          ✕ Allocation error: ${escapeHtml(allocError)}
+          X Allocation error: ${escapeHtml(allocError)}
         </div>
       ` : `
         <!-- Requirements vs allocation table -->
@@ -536,12 +536,12 @@ class VlsmDesignEngine {
 
     const parsed = parseCIDR(this._customBase);
     if (!parsed) {
-      resultEl.innerHTML = `<div style="color:var(--color-error); font-size:var(--text-sm); padding:0.5rem;">✕ Invalid base network — use CIDR format, e.g. 192.168.1.0/24</div>`;
+      resultEl.innerHTML = `<div style="color:var(--color-error); font-size:var(--text-sm); padding:0.5rem;">X Invalid base network — use CIDR format, e.g. 192.168.1.0/24</div>`;
       return;
     }
 
     if (!this._customNeeds.length) {
-      resultEl.innerHTML = `<div style="color:var(--color-error); font-size:var(--text-sm); padding:0.5rem;">✕ Add at least one subnet requirement.</div>`;
+      resultEl.innerHTML = `<div style="color:var(--color-error); font-size:var(--text-sm); padding:0.5rem;">X Add at least one subnet requirement.</div>`;
       return;
     }
 
@@ -549,7 +549,7 @@ class VlsmDesignEngine {
     try {
       allocation = vlsmAllocate(parsed.ip, parsed.prefix, this._customNeeds);
     } catch (e) {
-      resultEl.innerHTML = `<div style="padding:0.75rem; background:rgba(255,68,68,0.1); border:1px solid var(--color-error); border-radius:var(--radius-md); color:var(--color-error); font-size:var(--text-sm);">✕ ${escapeHtml(e.message)}</div>`;
+      resultEl.innerHTML = `<div style="padding:0.75rem; background:rgba(255,68,68,0.1); border:1px solid var(--color-error); border-radius:var(--radius-md); color:var(--color-error); font-size:var(--text-sm);">X ${escapeHtml(e.message)}</div>`;
       return;
     }
 
@@ -560,7 +560,7 @@ class VlsmDesignEngine {
       </div>
     `;
 
-    showToast(`✓ Allocated ${allocation.length} subnets from ${this._customBase}`, 'success');
+    showToast(`OK Allocated ${allocation.length} subnets from ${this._customBase}`, 'success');
 
     stateManager.mergeState('userProgress', {
       completedModules: [...new Set([

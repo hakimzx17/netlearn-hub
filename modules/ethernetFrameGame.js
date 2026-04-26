@@ -69,9 +69,9 @@ class EthernetFrameGame {
       <!-- Control Bar -->
       <div class="control-bar" style="margin-bottom:1.25rem;">
         <button class="btn btn-ghost" id="eth-reset-btn">↺ Reset</button>
-        <button class="btn btn-secondary" id="eth-check-btn">✓ Check Result</button>
-        <button class="btn btn-info" id="eth-show-answer-btn">👁️ Show Answer</button>
-        <button class="btn btn-ghost" id="eth-hint-btn">💡 Hints</button>
+        <button class="btn btn-secondary" id="eth-check-btn">OK Check Result</button>
+        <button class="btn btn-info" id="eth-show-answer-btn">VIEW Show Answer</button>
+        <button class="btn btn-ghost" id="eth-hint-btn">TIP Hints</button>
         <span class="text-mono text-xs text-muted" id="eth-score-label">0 / ${FRAME_ZONES.length} placed</span>
       </div>
 
@@ -87,7 +87,30 @@ class EthernetFrameGame {
       </div>
 
       <!-- Feedback Area -->
-      <div id="eth-feedback" style="margin-top:1.5rem;"></div>
+      <div id="eth-feedback" style="margin-top:1.5rem; margin-bottom:2rem;"></div>
+
+      <!-- QUIZ MODE REDIRECT -->
+      <div class="card" style="margin-top:2rem; background:linear-gradient(135deg, rgba(0,206,209,0.06), rgba(206,147,216,0.06)); border:1px solid rgba(0,206,209,0.2);">
+        <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem;">
+          <div>
+            <h2 style="margin:0 0 0.4rem 0; font-size:1.2rem; display:flex; align-items:center; gap:0.5rem;">
+              FOCUS Frame Assembly Complete
+            </h2>
+            <p style="color:var(--color-text-muted); margin:0; font-size:0.85rem; max-width:420px; line-height:1.5;">
+              You've built the Ethernet frame. Move on to the Module Quiz to verify your data link knowledge!
+            </p>
+          </div>
+          <button class="btn btn-primary" id="btn-launch-quiz" style="
+            padding:0.75rem 1.75rem; border-radius:12px; font-size:1rem; font-weight:700;
+            background:linear-gradient(135deg, #00CED1, #7C4DFF);
+            border:none; color:white; cursor:pointer;
+            box-shadow:0 4px 20px rgba(0,206,209,0.3);
+            transition:all 0.3s ease;
+          " onmouseover="this.style.transform='translateY(-2px) scale(1.03)';this.style.boxShadow='0 6px 30px rgba(0,206,209,0.45)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 4px 20px rgba(0,206,209,0.3)'">
+            Ready to take Quiz →
+          </button>
+        </div>
+      </div>
     `;
 
     // Initialize the drag-drop engine with separate containers
@@ -112,8 +135,8 @@ class EthernetFrameGame {
       },
       onComplete: ({ score, total }) => {
         // Completion only if already showing feedback
-        if (this._dnd._feedbackVisible) {
-          showToast(`🎉 Perfect! All ${total} frame fields assembled correctly.`, 'success', 4000);
+        if (this._dnd.isFeedbackVisible()) {
+          showToast(`DONE Perfect! All ${total} frame fields assembled correctly.`, 'success', 4000);
           stateManager.mergeState('userProgress', {
             completedModules: [
               ...new Set([...(stateManager.getState('userProgress').completedModules || []), '/ethernet-frame'])
@@ -145,7 +168,7 @@ class EthernetFrameGame {
     // Hints button
     this.container.querySelector('#eth-hint-btn')?.addEventListener('click', () => {
       eventBus.emit('modal:open', {
-        title: '💡 Ethernet Frame Field Reference',
+        title: 'TIP Ethernet Frame Field Reference',
         body: `
           <div style="display:flex; flex-direction:column; gap:0.5rem;">
             ${FRAME_FIELDS.map(f => `
@@ -167,6 +190,16 @@ class EthernetFrameGame {
     this.container.querySelector('#eth-show-answer-btn')?.addEventListener('click', () => {
       this._showAnswer();
     });
+
+    // Quiz redirect
+    this.container.querySelector('#btn-launch-quiz')?.addEventListener('click', () => {
+      const quizTabBtn = document.querySelector('button[data-tab="quiz"]');
+      if (quizTabBtn) {
+        quizTabBtn.click();
+      } else {
+        eventBus.emit('nav:route-change', { route: '/paths/fundamentals/ethernet-framing?tab=quiz' });
+      }
+    });
   }
 
   _validateAll() {
@@ -176,7 +209,7 @@ class EthernetFrameGame {
     if (state.score === state.total) {
       feedback.innerHTML = `
         <div style="padding:1rem; background:rgba(0,230,118,0.1); border:1px solid var(--color-success); border-radius:var(--radius-md); color:var(--color-success); font-weight:700; text-align:center;">
-          🎉 Perfect! All ${state.total} Ethernet frame fields are correctly assembled.
+          DONE Perfect! All ${state.total} Ethernet frame fields are correctly assembled.
         </div>
       `;
       showToast(`Perfect! Ethernet frame assembled correctly.`, 'success', 4000);
@@ -199,21 +232,12 @@ class EthernetFrameGame {
   }
 
   _showAnswer() {
-    // Reset to clear current state
-    this._dnd._placements = {};
-    
-    // Populate all zones with correct fields
-    FRAME_ZONES.forEach(zone => {
-      this._dnd._placements[zone.id] = zone.accepts;
-    });
-    
-    // Show feedback (green highlight for correct placements)
-    this._dnd._feedbackVisible = true;
-    this._dnd._locked = true;
-    
-    // Re-render to display the complete answer
-    this._dnd._render();
-    this._dnd._bindEvents();
+    // Use engine public API to avoid direct internal mutation.
+    const answerMap = FRAME_ZONES.reduce((acc, zone) => {
+      acc[zone.id] = zone.accepts;
+      return acc;
+    }, {});
+    this._dnd.revealAnswer(answerMap);
     
     // Update UI
     this._updateScore();
@@ -223,7 +247,7 @@ class EthernetFrameGame {
     if (feedback) {
       feedback.innerHTML = `
         <div style="padding:1rem; background:rgba(0,230,118,0.1); border:1px solid var(--color-success); border-radius:var(--radius-md); color:var(--color-success); font-weight:700; text-align:center;">
-          👁️ Complete Ethernet Frame Structure Displayed
+          VIEW Complete Ethernet Frame Structure Displayed
         </div>
       `;
     }

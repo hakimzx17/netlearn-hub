@@ -13,35 +13,35 @@ const IP_CLASSES = [
     defaultMask: '/8 (255.0.0.0)', networks: '126', hosts: '16,777,214',
     private: '10.0.0.0/8', color: '#00CED1', colorVar: 'var(--color-cyan)', binary: '0xxxxxxx',
     use: 'Massive networks, large enterprises, and ISPs. Most blocks are exhausted.',
-    spacePct: 50, fixedBits: 1, fixedPattern: '0', icon: '🌍'
+    spacePct: 50, fixedBits: 1, fixedPattern: '0', icon: 'GLOBAL'
   },
   {
     cls: 'B', range: '128.0.0.0 – 191.255.255.255', firstOctet: '128–191',
     defaultMask: '/16 (255.255.0.0)', networks: '16,384', hosts: '65,534',
     private: '172.16.0.0/12', color: '#ffb800', colorVar: 'var(--color-amber)', binary: '10xxxxxx',
     use: 'Medium-to-large companies and universities.',
-    spacePct: 25, fixedBits: 2, fixedPattern: '10', icon: '🏢'
+    spacePct: 25, fixedBits: 2, fixedPattern: '10', icon: 'ENTERPRISE'
   },
   {
     cls: 'C', range: '192.0.0.0 – 223.255.255.255', firstOctet: '192–223',
     defaultMask: '/24 (255.255.255.0)', networks: '2,097,152', hosts: '254',
     private: '192.168.0.0/16', color: '#00e676', colorVar: 'var(--color-green)', binary: '110xxxxx',
     use: 'Home networks and small offices. The most common private range is 192.168.x.x.',
-    spacePct: 12.5, fixedBits: 3, fixedPattern: '110', icon: '🏠'
+    spacePct: 12.5, fixedBits: 3, fixedPattern: '110', icon: 'PRIVATE'
   },
   {
     cls: 'D', range: '224.0.0.0 – 239.255.255.255', firstOctet: '224–239',
     defaultMask: 'N/A', networks: 'N/A', hosts: 'N/A',
     private: 'N/A', color: '#ff4444', colorVar: 'var(--color-error)', binary: '1110xxxx',
     use: 'Multicast groups (OSPF, RIP, mDNS). Data sent to one address reaches multiple hosts.',
-    spacePct: 6.25, fixedBits: 4, fixedPattern: '1110', icon: '📡'
+    spacePct: 6.25, fixedBits: 4, fixedPattern: '1110', icon: 'ARP'
   },
   {
     cls: 'E', range: '240.0.0.0 – 255.255.255.254', firstOctet: '240–255',
     defaultMask: 'N/A', networks: 'N/A', hosts: 'N/A',
     private: 'N/A', color: '#ab47bc', colorVar: 'var(--color-switch)', binary: '1111xxxx',
     use: 'Reserved for experimental, research, and future use. Not used in production.',
-    spacePct: 6.25, fixedBits: 4, fixedPattern: '1111', icon: '🧪'
+    spacePct: 6.25, fixedBits: 4, fixedPattern: '1111', icon: 'LAB'
   }
 ];
 
@@ -72,8 +72,8 @@ class IpClassesExplorer {
   }
 
   _getDetailsForOctet(octet) {
-    if (octet === 127) return { cls: 'Loopback', color: '#7fa8c9', use: 'Reserved for loopback/localhost testing.', icon: '🔄', isSpecial: true };
-    if (octet === 0) return { cls: 'Reserved (0)', color: '#7fa8c9', use: 'Reserved for local network identification.', icon: '🚫', isSpecial: true };
+    if (octet === 127) return { cls: 'Loopback', color: '#7fa8c9', use: 'Reserved for loopback/localhost testing.', icon: 'CYCLE', isSpecial: true };
+    if (octet === 0) return { cls: 'Reserved (0)', color: '#7fa8c9', use: 'Reserved for local network identification.', icon: 'BLOCK', isSpecial: true };
     let clsName = 'E';
     if (octet >= 1 && octet <= 126) clsName = 'A';
     else if (octet >= 128 && octet <= 191) clsName = 'B';
@@ -133,7 +133,7 @@ class IpClassesExplorer {
         .ipc-bit-pos { font-family: var(--font-mono); font-size: 0.65rem; color: var(--color-text-muted); }
         .ipc-bit.fixed { cursor: not-allowed; opacity: 0.8; }
         .ipc-bit.fixed::after {
-          content: '🔒'; position: absolute; top: -8px; right: -6px; font-size: 10px;
+          content: 'LOCK'; position: absolute; top: -8px; right: -6px; font-size: 10px;
           background: var(--color-bg-deepest); border-radius: 50%; padding: 2px;
         }
 
@@ -190,7 +190,7 @@ class IpClassesExplorer {
         <div class="module-header__breadcrumb">
           <a href="#/">Home</a> › <span>Protocol Headers</span>
         </div>
-        <h1 class="module-header__title">🌐 IPv4 Address Classes</h1>
+        <h1 class="module-header__title">NET IPv4 Address Classes</h1>
         <p class="module-header__description">
           Before CIDR (Classless Inter-Domain Routing), IPv4 addresses were rigidly divided by their first octet bits.
           Mastering these classes is essential for recognizing IP ranges, default subnet masks, and private networks.
@@ -269,7 +269,7 @@ class IpClassesExplorer {
           
             <div class="ipc-analyzer">
               <label class="sr-only" for="ip-analyzer-input">IP address</label>
-              <label aria-hidden="true">🔎</label>
+              <label aria-hidden="true">SEARCH</label>
               <input type="text" id="ip-analyzer-input" placeholder="e.g. 192.168.1.10" value="192.168.1.10" autocomplete="off" spellcheck="false" />
             </div>
           
@@ -291,6 +291,29 @@ class IpClassesExplorer {
               `).join('')}
             </div>
           </div>
+        </div>
+      </div>
+
+      <!-- QUIZ MODE REDIRECT -->
+      <div class="card" style="margin-top:2rem; background:linear-gradient(135deg, rgba(0,206,209,0.06), rgba(206,147,216,0.06)); border:1px solid rgba(0,206,209,0.2);">
+        <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem;">
+          <div>
+            <h2 style="margin:0 0 0.4rem 0; font-size:1.2rem; display:flex; align-items:center; gap:0.5rem;">
+              FOCUS Complete the Module
+            </h2>
+            <p style="color:var(--color-text-muted); margin:0; font-size:0.85rem; max-width:420px; line-height:1.5;">
+              You've finished exploring the simulation. Move on to the Module Quiz to test your knowledge!
+            </p>
+          </div>
+          <button class="btn btn-primary" id="btn-launch-quiz" style="
+            padding:0.75rem 1.75rem; border-radius:12px; font-size:1rem; font-weight:700;
+            background:linear-gradient(135deg, #00CED1, #7C4DFF);
+            border:none; color:white; cursor:pointer;
+            box-shadow:0 4px 20px rgba(0,206,209,0.3);
+            transition:all 0.3s ease;
+          " onmouseover="this.style.transform='translateY(-2px) scale(1.03)';this.style.boxShadow='0 6px 30px rgba(0,206,209,0.45)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 4px 20px rgba(0,206,209,0.3)'">
+            Ready to take Quiz →
+          </button>
         </div>
       </div>
     `;
@@ -473,7 +496,7 @@ class IpClassesExplorer {
       resultArea.innerHTML = `
         <div class="ipc-result-card" style="padding: 1rem; border-color: #ff4444; background: rgba(255,68,68,0.1);">
           <div style="color: #ff4444; font-weight:700; display:flex; align-items:center; gap:0.5rem;">
-            <span>❌</span> Invalid IPv4 Address format
+            <span>X</span> Invalid IPv4 Address format
           </div>
         </div>
       `;
@@ -560,6 +583,19 @@ class IpClassesExplorer {
       });
       // Initial render check
       this._updateAnalyzer();
+    }
+
+    // Quiz redirect
+    const quizBtn = this.container.querySelector('#btn-launch-quiz');
+    if (quizBtn) {
+      quizBtn.addEventListener('click', () => {
+        const quizTabBtn = document.querySelector('button[data-tab="quiz"]');
+        if (quizTabBtn) {
+          quizTabBtn.click();
+        } else {
+          eventBus.emit('nav:route-change', { route: '/paths/fundamentals/ip-addressing?tab=quiz' });
+        }
+      });
     }
   }
 

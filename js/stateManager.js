@@ -16,7 +16,7 @@ import { eventBus } from './eventBus.js';
  * Keys that are automatically persisted to localStorage.
  * Simulation state and transient data are NOT persisted.
  */
-const PERSISTENT_KEYS = new Set(['userProgress', 'theme', 'examHistory', 'examConfig']);
+const PERSISTENT_KEYS = new Set(['userProgress', 'theme', 'examHistory', 'examConfig', 'userProfile', 'learningState', 'quizScores', 'adminPreview']);
 
 /**
  * Default initial state — all keys declared here.
@@ -46,7 +46,40 @@ const INITIAL_STATE = {
     scores: {},            // { moduleId: highScore }
     examAttempts: 0,
     bestExamScore: 0,
+    topicStates: {},       // { topicId: { quizPassed, bestQuizScore, attempts, quizHistory, completedAt } }
+    domainFinals: {},      // { domainId: { passed, bestScore, attempts, scoreHistory, flaggedTopicIds, passedAt } }
+    flaggedTopicIds: [],   // Topics requiring forced review after domain-exam failure
+    practiceExam: {
+      unlocked: false,
+      passed: false,
+      bestScore: 0,
+      attempts: 0,
+      reviewUnlocked: false,
+      passedAt: null,
+    },
   },
+
+  // User profile (persisted) — gamification
+  userProfile: {
+    name: 'Student',
+    xp: 0,
+    level: 1,
+    streak: 0,
+    lastVisitDate: null,
+    achievements: [],
+  },
+
+  // Learning state (persisted) — continue learning
+  learningState: {
+    lastModuleId: null,
+    lastPathId: null,
+    lastPosition: null,   // 'theory' | 'simulation' | 'practice' | 'quiz' | 'final-exam'
+    timestamp: null,
+  },
+
+  // Quiz scores per module (persisted) — weak area detection
+  quizScores: {},
+  // { moduleId: [score1, score2, ...] }
 
   // Live simulation data (volatile — not persisted)
   arpCache:     {},   // { '192.168.1.1': 'aa:bb:cc:dd:ee:ff' }
@@ -57,6 +90,7 @@ const INITIAL_STATE = {
   theme:         'dark',
   sidebarOpen:   true,
   activeModal:   null,
+  adminPreview:  false,
 };
 
 class StateManager {
@@ -221,19 +255,46 @@ class StateManager {
 
         const parsed = JSON.parse(raw);
 
-        // Basic type validation — if stored type doesn't match initial type, discard
-        const expected = typeof INITIAL_STATE[key];
-        if (typeof parsed !== expected) {
+        const initialValue = INITIAL_STATE[key];
+        const expectedType = typeof initialValue;
+
+        // Null defaults (e.g. examConfig) may be restored as null or object payloads.
+        if (initialValue === null) {
+          if (parsed === null || typeof parsed === 'object') {
+            this._state[key] = parsed;
+          } else {
+            console.warn(`[StateManager] Discarding corrupt persisted value for "${key}"`);
+          }
+          return;
+        }
+
+        // Arrays must remain arrays.
+        if (Array.isArray(initialValue)) {
+          if (!Array.isArray(parsed)) {
+            console.warn(`[StateManager] Discarding corrupt persisted value for "${key}"`);
+            return;
+          }
+          this._state[key] = parsed;
+          return;
+        }
+
+        // Plain objects are merged with defaults to support schema additions.
+        if (expectedType === 'object') {
+          if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+            console.warn(`[StateManager] Discarding corrupt persisted value for "${key}"`);
+            return;
+          }
+          this._state[key] = { ...initialValue, ...parsed };
+          return;
+        }
+
+        // Primitives must match their expected type.
+        if (typeof parsed !== expectedType) {
           console.warn(`[StateManager] Discarding corrupt persisted value for "${key}"`);
           return;
         }
 
-        // For objects, merge with defaults to handle schema additions between versions
-        if (expected === 'object' && parsed !== null) {
-          this._state[key] = { ...INITIAL_STATE[key], ...parsed };
-        } else {
-          this._state[key] = parsed;
-        }
+        this._state[key] = parsed;
       } catch (err) {
         console.warn(`[StateManager] Failed to load persisted key "${key}":`, err);
       }

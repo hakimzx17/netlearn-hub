@@ -6,11 +6,23 @@
 
 /* ═══════════════════════════════════════════
    GOOGLE FONTS IMPORT
-   Syne: Geometric display — headings
+   Space Grotesk: Display — headings
+   Instrument Sans: UI/body — interface text
    JetBrains Mono: Monospace — data / code
-   Nunito: Rounded sans — body / UI labels
    ═══════════════════════════════════════════ */
-@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Nunito:wght@300;400;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+/* ═══════════════════════════════════════════
+   NATIVE EMOJI RENDERING
+   Emoji characters render using the platform's built-in emoji fonts
+   (Apple Color Emoji → macOS, Segoe UI Emoji → Windows,
+   Noto Color Emoji → Linux/Android). No CDN dependency.
+   ═══════════════════════════════════════════ */
+
+/* Hide any leftover twemoji <img> tags from previous versions */
+img.emoji {
+  display: none !important;
+}
 
 /* ═══════════════════════════════════════════
    CSS CUSTOM PROPERTIES
@@ -61,9 +73,10 @@
   --color-border-active:var(--color-cyan);
 
   /* ── Typography Scale ───────────────────── */
-  --font-display:  'Syne', sans-serif;
-  --font-body:     'Nunito', sans-serif;
+  --font-display:  'Space Grotesk', sans-serif;
+  --font-body:     'Instrument Sans', sans-serif;
   --font-mono:     'JetBrains Mono', monospace;
+  --font-sans:     var(--font-body);
 
   --text-xs:    0.6875rem;   /* 11px */
   --text-sm:    0.8125rem;   /* 13px */
@@ -126,15 +139,38 @@
   --navbar-height:  60px;
   --sidebar-width:  260px;
   --sidebar-collapsed: 60px;
+
+  /* ── Flashcard Module Foundation ────────── */
+  --flash-shell-max-width: 1380px;
+  --flash-shell-panel: rgba(15, 20, 33, 0.92);
+  --flash-shell-panel-strong: rgba(9, 13, 22, 0.96);
+  --flash-shell-border: rgba(94, 197, 255, 0.18);
+  --flash-shell-border-strong: rgba(94, 197, 255, 0.32);
+  --flash-shell-violet: rgba(161, 129, 255, 0.16);
+  --flash-signal: #5ec5ff;
+  --flash-signal-soft: #8dd8ff;
+  --flash-violet: #a181ff;
+  --flash-mint: #71f1a6;
+  --flash-amber: #ffc857;
+  --flash-danger: #ff6b7d;
+  --flash-muted: #7c86a4;
+  --flash-card-width: 720px;
+  --flash-card-height: 420px;
+  --flash-card-depth: 22px;
+  --flash-card-question-glow: rgba(94, 197, 255, 0.18);
+  --flash-card-answer-glow: rgba(113, 241, 166, 0.18);
+  --flash-grid-gap: 1rem;
+  --flash-panel-shadow: 0 20px 48px rgba(0, 0, 0, 0.42);
+  --flash-card-shadow: 0 30px 60px rgba(0, 0, 0, 0.48);
 }
 
 /* ═══════════════════════════════════════════
-   CSS RESET
+   NATIVE EMOJI RENDERING
+   Uses platform-native emoji fonts for consistent display.
    ═══════════════════════════════════════════ */
-*, *::before, *::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+img.emoji {
+  /* Hide any leftover Twemoji IMG tags */
+  display: none !important;
 }
 
 html {
@@ -144,7 +180,7 @@ html {
 }
 
 body {
-  font-family: var(--font-body);
+  font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji', var(--font-body);
   font-size: var(--text-base);
   font-weight: 400;
   line-height: var(--leading-normal);
@@ -418,4 +454,77 @@ img, svg { display: block; max-width: 100%; }
   border: none;
   border-top: 1px solid var(--color-border);
   margin: var(--space-6) 0;
+}
+
+/* ═══════════════════════════════════════════
+   TOUCH-FRIENDLY IMPROVEMENTS
+   ═══════════════════════════════════════════ */
+
+/* Increase tap targets on touch devices */
+@media (hover: none) and (pointer: coarse) {
+  /* Minimum 44px tap targets */
+  button, .btn, input[type="submit"], input[type="button"],
+  .lesson-tab, .quiz-opt-btn, .drag-item, .drop-zone {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Larger padding for touch */
+  .lesson-tab {
+    padding: 0.75rem 1rem;
+  }
+  
+  /* Improve link tap targets */
+  a {
+    padding: 0.25rem 0;
+  }
+  
+  /* Better scroll on mobile */
+  body {
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Remove hover effects that don't work on touch */
+  .btn:hover,
+  .lesson-tab:hover {
+    transform: none;
+  }
+}
+
+/* Mobile viewport optimization */
+@media (max-width: 768px) {
+  /* Prevent horizontal scroll */
+  html, body {
+    overflow-x: hidden;
+  }
+  
+  /* Smaller font on mobile */
+  body {
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  
+  /* Better form inputs on mobile */
+  input, select, textarea {
+    font-size: 16px; /* Prevents zoom on iOS */
+  }
+  
+  /* Full-width buttons on mobile */
+  .btn-block-mobile {
+    width: 100%;
+  }
+}
+
+/* Small mobile adjustments */
+@media (max-width: 480px) {
+  /* Tighter spacing */
+  :root {
+    --space-4: 1rem;
+    --space-6: 1.5rem;
+  }
+  
+  /* Smaller headings */
+  h1 { font-size: 1.5rem; }
+  h2 { font-size: 1.25rem; }
+  h3 { font-size: 1.1rem; }
 }

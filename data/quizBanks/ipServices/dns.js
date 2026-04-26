@@ -1,0 +1,16 @@
+import { q } from './helpers.js';
+
+const dnsBank = [
+  q('d4-4-5-q1', 'What is the primary job of DNS?', ['To assign IP addresses automatically', 'To translate names into IP addresses', 'To encrypt management traffic', 'To control queueing'], 1, 'easy', 'DNS translates human-readable names into IP addresses.'),
+  q('d4-4-5-q2', 'What does a recursive query expect from the resolver?', ['Only a referral to another server', 'The final answer if possible', 'A new default route', 'A syslog trap'], 1, 'easy', 'A recursive query asks the resolver to take responsibility for returning the final answer if it can.'),
+  q('d4-4-5-q3', 'What is the purpose of iterative resolution in DNS?', ['It lets each server return a referral toward the next likely server in the hierarchy', 'It eliminates caching', 'It creates VLANs dynamically', 'It replaces MX records'], 0, 'medium', 'Iterative resolution returns referrals that guide the resolver through the hierarchy.'),
+  q('d4-4-5-q4', 'Which record type maps a hostname to an IPv4 address?', ['AAAA', 'PTR', 'A', 'MX'], 2, 'easy', 'An A record maps a hostname to an IPv4 address.'),
+  q('d4-4-5-q5', 'Which DNS record type identifies a mail exchanger?', ['CNAME', 'MX', 'NS', 'TXT'], 1, 'easy', 'MX records identify the mail exchanger for a domain.'),
+  q('d4-4-5-q6', 'What does TTL represent in DNS?', ['The routing hop count to the DNS server', 'How long cached information is considered valid', 'The port number for DNS queries', 'The number of root servers'], 1, 'medium', 'TTL controls the lifetime of cached DNS information.'),
+  q('d4-4-5-q7', 'Which port usage is commonly correct for DNS?', ['UDP 53 for normal queries and TCP 53 for zone transfers or larger exchanges', 'TCP 22 for queries and UDP 21 for transfers', 'UDP 67 for queries and UDP 68 for responses', 'TCP 161 for queries and UDP 162 for replies'], 0, 'medium', 'DNS commonly uses UDP 53 for ordinary queries and TCP 53 for zone transfers or larger exchanges.'),
+  q('d4-4-5-q8', 'Why can a DNS problem look like a network problem to a user?', ['Because applications often depend on names even when IP connectivity still exists', 'Because DNS changes STP priority', 'Because DNS disables ARP', 'Because DNS removes the default gateway'], 0, 'medium', 'Users often experience name-resolution failure as “the network is down” even if basic IP reachability still works.'),
+  q('d4-4-5-q9', 'Which sequence best matches a resolver walking the DNS hierarchy?', ['Authoritative → Root → TLD → Client', 'Client → TFTP → Root → DHCP', 'Resolver → Root → TLD → Authoritative', 'Root → Resolver → VLAN → MX'], 2, 'medium', 'A resolver commonly goes to the root, then the TLD, then the authoritative server while following iterative referrals.'),
+  q('d4-4-5-q10', 'Which statement best distinguishes a local resolver from an authoritative server?', ['A local resolver helps obtain answers for the client, while an authoritative server owns the definitive data for the zone', 'A resolver always stores only MX records', 'An authoritative server performs NAT overload', 'They are always the same device in every design'], 0, 'hard', 'Resolvers help clients obtain answers, while authoritative servers hold the definitive zone data.'),
+];
+
+export default dnsBank;

@@ -1,355 +1,713 @@
 /**
- * ttlRouterSimulation.js — TTL Router Hop Simulation
+ * ttlRouterSimulation.js — TTL Router Hop Simulator (Complete Rework)
  *
- * Teaches: How each router decrements the TTL field of an IP packet,
- *          what happens when TTL reaches zero (ICMP Time Exceeded),
- *          and why TTL exists (prevents infinite routing loops).
- *
- * Depends on: networkDiagram, eventBus, stateManager, helperFunctions
+ * Teaches:
+ * - Routers decrement IPv4 TTL by 1 at each Layer-3 hop
+ * - TTL=0 causes drop + ICMP Time Exceeded back to source
+ * - traceroute uses incremental TTL probes to map the path
  */
 
 import { createNetworkDiagram } from '../components/networkDiagram.js';
-import { stateManager }         from '../js/stateManager.js';
-import { sleep, showToast }     from '../utils/helperFunctions.js';
+import { stateManager } from '../js/stateManager.js';
+import { sleep, showToast, resolveInjectedCssTokens } from '../utils/helperFunctions.js';
 
 const TOPOLOGY = {
+  zones: [
+    {
+      id: 'source-lan',
+      x: 22,
+      y: 112,
+      width: 360,
+      height: 268,
+      title: 'Source LAN',
+      subnet: '10.10.1.0/24',
+      fill: 'rgba(144, 238, 144, 0.12)',
+      stroke: 'rgba(144, 238, 144, 0.55)',
+      strokeDasharray: '4 3',
+    },
+    {
+      id: 'dest-lan',
+      x: 988,
+      y: 112,
+      width: 360,
+      height: 268,
+      title: 'Destination LAN',
+      subnet: '203.0.113.0/24',
+      fill: 'rgba(120, 210, 255, 0.12)',
+      stroke: 'rgba(120, 210, 255, 0.55)',
+      strokeDasharray: '4 3',
+    },
+  ],
   nodes: [
-    { id: 'src',  type: 'pc',     label: 'Source',  x: 60,  y: 200, ip: '10.0.0.1' },
-    { id: 'r1',   type: 'router', label: 'R1',      x: 230, y: 200, ip: '10.1.0.1' },
-    { id: 'r2',   type: 'router', label: 'R2',      x: 400, y: 200, ip: '10.2.0.1' },
-    { id: 'r3',   type: 'router', label: 'R3',      x: 570, y: 200, ip: '10.3.0.1' },
-    { id: 'dst',  type: 'pc',     label: 'Dest',    x: 740, y: 200, ip: '10.4.0.1' },
+    { id: 'src', type: 'pc', label: 'PC1', x: 92, y: 186, ip: '10.10.1.10' },
+    { id: 'src2', type: 'pc', label: 'PC2', x: 92, y: 308, ip: '10.10.1.20' },
+    { id: 'sw1', type: 'switch', label: 'SW1', x: 270, y: 248 },
+    { id: 'r1', type: 'router', label: 'R1', x: 446, y: 248, ip: '10.10.1.1' },
+    { id: 'r2', type: 'router', label: 'R2', x: 626, y: 170, ip: '172.16.12.2' },
+    { id: 'r3', type: 'router', label: 'R3', x: 810, y: 248, ip: '172.16.23.3' },
+    { id: 'sw2', type: 'switch', label: 'SW2', x: 1068, y: 248 },
+    { id: 'dst', type: 'server', label: 'Dest Server', x: 1248, y: 186, ip: '203.0.113.10' },
+    { id: 'dst2', type: 'pc', label: 'PC4', x: 1248, y: 308, ip: '203.0.113.20' },
   ],
   links: [
-    { from: 'src', to: 'r1',  label: '' },
-    { from: 'r1',  to: 'r2',  label: '' },
-    { from: 'r2',  to: 'r3',  label: '' },
-    { from: 'r3',  to: 'dst', label: '' },
+    { from: 'src', to: 'sw1', label: 'G0/1' },
+    { from: 'src2', to: 'sw1', label: 'G0/2' },
+    { from: 'sw1', to: 'r1', label: 'G0/0' },
+    { from: 'r1', to: 'r2', label: 'G0/1' },
+    { from: 'r2', to: 'r3', label: 'G0/0' },
+    { from: 'r3', to: 'sw2', label: 'G0/1' },
+    { from: 'sw2', to: 'dst', label: 'G0/1' },
+    { from: 'sw2', to: 'dst2', label: 'G0/2' },
   ],
 };
 
-// Scenarios: normal delivery vs TTL expiry
+const FORWARD_PATH = ['src', 'sw1', 'r1', 'r2', 'r3', 'sw2', 'dst'];
+const ROUTER_HOPS = new Set(['r1', 'r2', 'r3']);
+
 const SCENARIOS = [
   {
     id: 'normal',
-    label: 'Normal Delivery (TTL=64)',
-    initialTTL: 64,
-    description: 'Standard TTL of 64. Packet traverses 3 routers and arrives safely. Each router decrements TTL by 1.',
+    label: 'Normal Delivery',
+    title: 'Normal Delivery (TTL=8)',
+    mode: 'single',
+    initialTTL: 8,
+    description: 'Packet crosses three routers. TTL is decremented at each router and reaches destination safely.',
   },
   {
     id: 'expiry',
-    label: 'TTL Expiry Simulation (TTL=2)',
+    label: 'TTL Expiry',
+    title: 'TTL Expiry Demo (TTL=2)',
+    mode: 'single',
     initialTTL: 2,
-    description: 'TTL set to 2. Packet will expire at R2 — router sends ICMP "Time Exceeded" back to source. This is how traceroute discovers hop addresses.',
+    description: 'Packet expires at R2. Router drops packet and returns ICMP Time Exceeded to source.',
   },
   {
     id: 'traceroute',
-    label: 'Traceroute Mechanics (TTL=1,2,3)',
+    label: 'Traceroute',
+    title: 'Traceroute Mechanics (TTL=1..4)',
+    mode: 'traceroute',
     initialTTL: 1,
-    description: 'Traceroute sends probes with TTL=1,2,3... Each expiry reveals the next hop. This is how the full path is mapped.',
+    probeTTLs: [1, 2, 3, 4],
+    description: 'Incremental probes reveal R1, R2, R3, then destination.',
   },
 ];
 
 class TtlRouterSimulation {
   constructor() {
-    this.container   = null;
-    this._diagram    = null;
-    this._running    = false;
-    this._currentTTL = 64;
-    this._scenario   = 'normal';
+    this.container = null;
+    this._diagram = null;
+    this._running = false;
     this._isDestroyed = false;
+    this._runToken = 0;
+    this._scenarioId = 'normal';
+    this._ttlBase = 8;
   }
 
   init(containerEl) {
     this.container = containerEl;
-    this._diagram  = createNetworkDiagram();
+    this._diagram = createNetworkDiagram();
     this._isDestroyed = false;
+    this._injectStyles();
     this._render();
   }
 
-  _render() {
-    this.container.innerHTML = `
-      <div class="module-header">
-        <div class="module-header__breadcrumb">
-          <a href="#/">Home</a> › <span>Simulations</span>
-        </div>
-        <h1 class="module-header__title">TTL Router Hop Simulation</h1>
-        <p class="module-header__description">
-          Time To Live prevents packets from looping forever. Every router
-          that forwards a packet decrements TTL by exactly 1. When TTL
-          hits zero, the router drops the packet and sends an ICMP
-          Time Exceeded message back to the source.
-        </p>
-      </div>
-
-      <div class="layout-main-sidebar">
-        <div>
-          <!-- Scenario selector -->
-          <div style="display:flex; gap:0.5rem; margin-bottom:1rem; flex-wrap:wrap;">
-            ${SCENARIOS.map(s => `
-              <button class="btn ${s.id === this._scenario ? 'btn-primary' : 'btn-ghost'} ttl-scenario-btn"
-                data-scenario="${s.id}" style="font-size:var(--text-xs); padding:0.3rem 0.75rem;">
-                ${s.label}
-              </button>
-            `).join('')}
-          </div>
-
-          <div class="sim-canvas" id="ttl-canvas" style="min-height:260px;"></div>
-
-          <!-- TTL counter bar -->
-          <div style="margin-top:1rem; padding:0.75rem 1rem; background:var(--color-bg-medium); border-radius:var(--radius-md); border:1px solid var(--color-border);">
-            <div style="display:flex; justify-content:space-between; margin-bottom:0.4rem;">
-              <span class="text-mono text-xs text-muted">PACKET TTL</span>
-              <span class="text-mono text-sm" id="ttl-value" style="color:var(--color-cyan); font-weight:700;">64</span>
-            </div>
-            <div style="height:8px; background:var(--color-bg-raised); border-radius:99px; overflow:hidden;">
-              <div id="ttl-bar" style="height:100%; background:var(--color-cyan); border-radius:99px; width:100%; transition:width 0.5s ease, background 0.3s ease;"></div>
-            </div>
-          </div>
-
-          <div class="control-bar" style="margin-top:0.75rem;">
-            <button class="btn btn-primary"   id="ttl-run-btn">▶ Simulate</button>
-            <button class="btn btn-ghost"     id="ttl-reset-btn">↺ Reset</button>
-          </div>
-
-          <div class="info-panel" style="margin-top:1rem;">
-            <div class="info-panel__title" id="ttl-step-title">⏱ TTL Simulation</div>
-            <p class="text-secondary text-sm" style="line-height:1.8;" id="ttl-step-log">
-              Select a scenario above, then press <strong>Simulate</strong> to watch TTL
-              decrement at each hop. A value of 64 or 128 is typical in real packets.
-            </p>
-          </div>
-        </div>
-
-        <div>
-          <!-- Hop log -->
-          <div class="info-panel">
-            <div class="info-panel__title">📊 Hop Log</div>
-            <div id="ttl-hop-log" style="font-family:var(--font-mono); font-size:var(--text-xs);">
-              <p class="text-muted" style="text-align:center; padding:0.5rem;">Awaiting simulation...</p>
-            </div>
-          </div>
-
-          <!-- Why TTL exists -->
-          <div class="card" style="margin-top:1rem;">
-            <div class="text-mono text-xs text-muted" style="margin-bottom:0.75rem; text-transform:uppercase;">Why TTL Exists</div>
-            ${[
-              ['Routing Loops',  'Without TTL, a misrouted packet could bounce between routers forever, consuming bandwidth.'],
-              ['Default Values', 'Windows: 128. Linux/macOS: 64. Old Unix: 255. Cisco IOS: 255 (routing protocols).'],
-              ['traceroute',     'Intentionally sends packets with TTL=1,2,3... to get ICMP replies from each router hop.'],
-              ['ping TTL',       'ping shows the TTL of the reply. 64 from a Linux host = 0 hops away. 63 = 1 hop.'],
-            ].map(([k, v]) => `
-              <div style="margin-bottom:0.6rem; padding-bottom:0.6rem; border-bottom:1px solid var(--color-border);">
-                <div style="font-size:var(--text-xs); font-weight:700; color:var(--color-amber); margin-bottom:0.2rem;">${k}</div>
-                <p style="font-size:var(--text-xs); color:var(--color-text-muted); margin:0; line-height:1.6;">${v}</p>
-              </div>
-            `).join('')}
-          </div>
-        </div>
-      </div>
-    `;
-
-    this._diagram.init(
-      this.container.querySelector('#ttl-canvas'),
-      TOPOLOGY,
-      { width: 820, height: 250 }
-    );
-
-    this._setTTLDisplay(SCENARIOS.find(s => s.id === this._scenario).initialTTL);
-    this._bindControls();
+  start() {
+    if (!this._running) this._runScenario();
   }
 
-  _bindControls() {
-    this.container.querySelectorAll('.ttl-scenario-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        if (this._running) return;
-        this._scenario = btn.getAttribute('data-scenario');
-        this._diagram.reset();
-        const sc = SCENARIOS.find(s => s.id === this._scenario);
-        this._setTTLDisplay(sc.initialTTL);
-        this._clearHopLog();
-        this._updatePanel(`⏱ ${sc.label}`, sc.description);
-
-        this.container.querySelectorAll('.ttl-scenario-btn').forEach(b => {
-          b.className = `btn ${b.getAttribute('data-scenario') === this._scenario ? 'btn-primary' : 'btn-ghost'} ttl-scenario-btn`;
-          b.style.fontSize = 'var(--text-xs)'; b.style.padding = '0.3rem 0.75rem';
-        });
-      });
-    });
-
-    this.container.querySelector('#ttl-run-btn')?.addEventListener('click', () => {
-      if (!this._running) this._simulate();
-    });
-    this.container.querySelector('#ttl-reset-btn')?.addEventListener('click', () => {
-      this._running = false;
-      this.reset();
-    });
+  step() {
+    this.start();
   }
-
-  async _simulate() {
-    if (this._running) return;
-    this._running = true;
-    const shouldStop = () => this._isDestroyed || !this._running || !this.container;
-    this._clearHopLog();
-
-    const sc = SCENARIOS.find(s => s.id === this._scenario);
-    let   ttl = sc.initialTTL;
-
-    // Reset TTL display to initial value
-    this._setTTLDisplay(ttl);
-    this._updatePanel(`⏱ ${sc.label}`, sc.description);
-
-    if (sc.id === 'traceroute') {
-      // Simulate TTL=1, 2, 3 probes
-      for (let probe = 1; probe <= 3; probe++) {
-        ttl = probe;
-        this._setTTLDisplay(ttl);
-        this._addHopEntry(`Probe TTL=${probe}`, 'src', ttl, false, true);
-        await sleep(300);
-        if (shouldStop()) { this._running = false; return; }
-        const hops = ['r1', 'r2', 'r3', 'dst'];
-        for (let i = 0; i < hops.length; i++) {
-          if (shouldStop()) { this._running = false; return; }
-          const hop = hops[i];
-          await this._diagram.animatePacket([i === 0 ? 'src' : hops[i-1], hop], { type: 'data', speed: 450 });
-          if (shouldStop()) { this._running = false; return; }
-          ttl--;
-          if (ttl <= 0) {
-            this._diagram.highlightNode(hop, 'error', 1200);
-            this._addHopEntry(`ICMP Time Exceeded ← ${hop}`, hop, 0, true, false);
-            this._setTTLDisplay(0);
-            await this._diagram.animatePacket([hop, 'src'], { type: 'icmp', label: 'ICMP!', speed: 400 });
-            if (shouldStop()) { this._running = false; return; }
-            await sleep(400);
-            if (shouldStop()) { this._running = false; return; }
-            break;
-          }
-          this._setTTLDisplay(ttl);
-          this._addHopEntry(`Hop ${i+1}: ${hop}`, hop, ttl, false, false);
-          this._diagram.updateNodeLabel(hop, ttl.toString());
-          await sleep(200);
-          if (shouldStop()) { this._running = false; return; }
-        }
-        await sleep(500);
-        if (shouldStop()) { this._running = false; return; }
-        this._diagram.reset();
-      }
-      this._updatePanel('🗺 Path Mapped!', 'traceroute complete — each ICMP reply reveals a hop. The full path: Source → R1 → R2 → R3 → Destination.');
-    } else {
-      // Normal or expiry
-      const hops = [
-        { from: 'src', to: 'r1' },
-        { from: 'r1',  to: 'r2' },
-        { from: 'r2',  to: 'r3' },
-        { from: 'r3',  to: 'dst' },
-      ];
-
-      this._addHopEntry('Source sends packet', 'src', ttl, false, true);
-
-      for (let i = 0; i < hops.length; i++) {
-        if (shouldStop()) { this._running = false; return; }
-        const { from, to } = hops[i];
-        await this._diagram.animatePacket([from, to], { type: 'data', label: `TTL=${ttl}`, speed: 500 });
-        if (shouldStop()) { this._running = false; return; }
-        this._diagram.highlightNode(to, 'hop', 600);
-
-        if (to !== 'dst') {
-          ttl--;
-          this._setTTLDisplay(ttl);
-
-          if (ttl <= 0) {
-            this._diagram.highlightNode(to, 'error', 2000);
-            this._addHopEntry(`TTL=0 at ${to} — packet dropped!`, to, 0, true, false);
-            this._updatePanel('⚠ TTL Expired!', `Packet dropped at ${to}. An ICMP Time Exceeded message is sent back to the source (10.0.0.1).`);
-            await sleep(400);
-            if (shouldStop()) { this._running = false; return; }
-            await this._diagram.animatePacket([to, 'src'], { type: 'icmp', label: 'ICMP TE', speed: 400 });
-            if (shouldStop()) { this._running = false; return; }
-            this._diagram.highlightNode('src', 'error', 1000);
-            this._addHopEntry('ICMP Time Exceeded → Source', 'src', 0, false, false);
-            break;
-          }
-
-          this._addHopEntry(`Router ${to} — TTL decremented`, to, ttl, false, false);
-          this._diagram.updateNodeLabel(to, ttl.toString());
-        } else {
-          this._diagram.highlightNode('dst', 'success', 2000);
-          this._addHopEntry('Packet delivered to destination!', 'dst', ttl, false, false);
-          this._updatePanel('✓ Packet Delivered!', `Packet reached ${TOPOLOGY.nodes.find(n=>n.id==='dst').ip} with TTL=${ttl} remaining.`);
-          showToast('Packet delivered successfully!', 'success');
-          stateManager.mergeState('userProgress', {
-            completedModules: [...new Set([
-              ...(stateManager.getState('userProgress').completedModules || []),
-              '/ttl-simulation'
-            ])]
-          });
-        }
-        await sleep(300);
-        if (shouldStop()) { this._running = false; return; }
-      }
-    }
-
-    this._running = false;
-  }
-
-  _setTTLDisplay(ttl) {
-    this._currentTTL = ttl;
-    const el  = this.container.querySelector('#ttl-value');
-    const bar = this.container.querySelector('#ttl-bar');
-    if (el) {
-      el.textContent = ttl;
-      el.style.color = ttl <= 0 ? 'var(--color-error)' : ttl <= 5 ? 'var(--color-warning)' : 'var(--color-cyan)';
-    }
-    if (bar) {
-      const maxTTL = SCENARIOS.find(s => s.id === this._scenario)?.initialTTL || 64;
-      bar.style.width = `${Math.max(0, (ttl / maxTTL) * 100)}%`;
-      bar.style.background = ttl <= 0 ? 'var(--color-error)' : ttl <= 5 ? 'var(--color-warning)' : 'var(--color-cyan)';
-    }
-  }
-
-  _addHopEntry(label, nodeId, ttl, isError, isSource) {
-    const log = this.container.querySelector('#ttl-hop-log');
-    if (!log) return;
-    if (log.querySelector('p')) log.innerHTML = '';
-    const color = isError ? 'var(--color-error)' : isSource ? 'var(--color-text-secondary)' : 'var(--color-text-primary)';
-    const entry = document.createElement('div');
-    entry.style.cssText = `padding:0.3rem 0; border-bottom:1px solid var(--color-border); animation:fadeIn 0.3s ease; font-size:var(--text-xs);`;
-    entry.innerHTML = `
-      <div style="display:flex; justify-content:space-between; align-items:center;">
-        <span style="color:${color};">${label}</span>
-        ${!isSource ? `<span style="color:${ttl <= 0 ? 'var(--color-error)' : 'var(--color-cyan)'}; font-weight:700;">TTL=${ttl}</span>` : ''}
-      </div>
-    `;
-    log.appendChild(entry);
-    log.scrollTop = log.scrollHeight;
-  }
-
-  _clearHopLog() {
-    const log = this.container.querySelector('#ttl-hop-log');
-    if (log) log.innerHTML = '<p class="text-muted" style="text-align:center; padding:0.5rem;">Awaiting simulation...</p>';
-  }
-
-  _updatePanel(title, log) {
-    const t = this.container.querySelector('#ttl-step-title');
-    const l = this.container.querySelector('#ttl-step-log');
-    if (t) t.textContent = title;
-    if (l) l.textContent = log;
-  }
-
-  start()  { this._simulate(); }
-  step()   {}
 
   reset() {
+    this._runToken += 1;
     this._running = false;
     if (this._diagram) this._diagram.reset();
     if (this.container) this._render();
   }
 
   destroy() {
+    this._runToken += 1;
     this._running = false;
     this._isDestroyed = true;
     if (this._diagram) this._diagram.destroy();
+    this._diagram = null;
     this.container = null;
+  }
+
+  _render() {
+    const sc = this._getScenario();
+
+    this.container.innerHTML = `
+      <div class="ttlx-wrap">
+        <div class="module-header">
+          <div class="module-header__breadcrumb">
+            <a href="#/">Home</a> › <span>Simulations</span>
+          </div>
+          <h1 class="module-header__title">TTL Router Hop Simulator</h1>
+          <p class="module-header__description">
+            Every router decrements TTL by 1 before forwarding. If TTL becomes 0, the packet is dropped and an ICMP Time Exceeded message is generated.
+          </p>
+        </div>
+
+        <div class="ttlx-grid">
+          <section class="ttlx-main">
+            <div class="ttlx-card">
+              <div class="ttlx-card__head">
+                <span>Scenario</span>
+              </div>
+              <div class="ttlx-scenarios">
+                ${SCENARIOS.map((s) => `
+                  <button class="ttlx-scenario ${s.id === this._scenarioId ? 'is-active' : ''}" data-scenario="${s.id}">
+                    ${s.label}
+                  </button>
+                `).join('')}
+              </div>
+            </div>
+
+            <div class="ttlx-card ttlx-topology">
+              <div class="ttlx-card__head">
+                <span>Network Topology</span>
+                <span id="ttlx-scenario-title" class="ttlx-subhead">${sc.title}</span>
+              </div>
+              <div class="ttlx-canvas" id="ttlx-canvas"></div>
+            </div>
+
+            <div class="ttlx-controls">
+              <button class="btn btn-primary" id="ttlx-run-btn">Run Scenario</button>
+              <button class="btn btn-ghost" id="ttlx-reset-btn">Reset</button>
+            </div>
+
+            <div class="ttlx-card">
+              <div class="ttlx-gauge-row">
+                <span class="ttlx-label">Current TTL</span>
+                <span class="ttlx-ttl" id="ttlx-ttl-value">${sc.initialTTL}</span>
+              </div>
+              <div class="ttlx-gauge">
+                <div class="ttlx-gauge__bar" id="ttlx-ttl-bar"></div>
+              </div>
+            </div>
+
+            <div class="ttlx-card">
+              <div class="ttlx-status" id="ttlx-status-title">${sc.title}</div>
+              <p class="ttlx-status__desc" id="ttlx-status-desc">${sc.description}</p>
+            </div>
+          </section>
+
+          <aside class="ttlx-side">
+            <div class="ttlx-card">
+              <div class="ttlx-card__head"><span>Hop Log</span></div>
+              <div class="ttlx-log">
+                <div class="ttlx-log__head">
+                  <span>Hop</span><span>Device</span><span>TTL In→Out</span><span>Result</span>
+                </div>
+                <div class="ttlx-log__body" id="ttlx-log-body">
+                  <div class="ttlx-log__empty">Awaiting simulation...</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="ttlx-card">
+              <div class="ttlx-card__head"><span>TTL Notes</span></div>
+              <div class="ttlx-notes">
+                <p><strong>Loop protection:</strong> TTL prevents infinite forwarding loops.</p>
+                <p><strong>Decrement point:</strong> TTL changes only at Layer-3 hops (routers), not switches.</p>
+                <p><strong>ICMP trigger:</strong> Router sends Time Exceeded when post-decrement TTL is 0.</p>
+                <p><strong>traceroute:</strong> Probes with TTL=1,2,3... reveal each router in the path.</p>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </div>
+    `;
+
+    this._diagram.init(
+      this.container.querySelector('#ttlx-canvas'),
+      TOPOLOGY,
+      {
+        width: 1380,
+        height: 520,
+        labelMode: 'compact',
+        compactPortLabels: true,
+        linkBadge: false,
+      }
+    );
+
+    this._prepareScenario();
+    this._bindControls();
+  }
+
+  _bindControls() {
+    this.container.querySelectorAll('.ttlx-scenario').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        if (this._running) return;
+        this._scenarioId = btn.getAttribute('data-scenario') || 'normal';
+        this._diagram?.reset();
+        this._prepareScenario();
+        this._syncScenarioButtons();
+      });
+    });
+
+    this.container.querySelector('#ttlx-run-btn')?.addEventListener('click', () => {
+      if (!this._running) this._runScenario();
+    });
+
+    this.container.querySelector('#ttlx-reset-btn')?.addEventListener('click', () => {
+      this.reset();
+    });
+  }
+
+  _getScenario() {
+    return SCENARIOS.find((s) => s.id === this._scenarioId) || SCENARIOS[0];
+  }
+
+  _syncScenarioButtons() {
+    this.container?.querySelectorAll('.ttlx-scenario').forEach((btn) => {
+      const active = btn.getAttribute('data-scenario') === this._scenarioId;
+      btn.classList.toggle('is-active', active);
+    });
+  }
+
+  _prepareScenario() {
+    const sc = this._getScenario();
+    this._ttlBase = sc.initialTTL;
+    this._setTTLDisplay(sc.initialTTL, sc.initialTTL);
+    this._clearLog();
+    this._setStatus(sc.title, sc.description, 'info');
+    const title = this.container?.querySelector('#ttlx-scenario-title');
+    if (title) title.textContent = sc.title;
+  }
+
+  _isAborted(token) {
+    return (
+      this._isDestroyed ||
+      !this.container ||
+      !this._diagram ||
+      token !== this._runToken ||
+      !this._running
+    );
+  }
+
+  async _sleepSafe(ms, token) {
+    if (this._isAborted(token)) return false;
+    await sleep(ms);
+    return !this._isAborted(token);
+  }
+
+  async _animateSafe(path, options, token) {
+    if (this._isAborted(token)) return false;
+    await this._diagram.animatePacket(path, options);
+    return !this._isAborted(token);
+  }
+
+  async _runScenario() {
+    if (this._running) return;
+
+    const sc = this._getScenario();
+    const token = ++this._runToken;
+    this._running = true;
+
+    const runBtn = this.container?.querySelector('#ttlx-run-btn');
+    if (runBtn) runBtn.setAttribute('disabled', 'true');
+
+    this._diagram?.reset();
+    this._clearLog();
+    this._setStatus(sc.title, sc.description, 'info');
+
+    if (sc.mode === 'traceroute') {
+      for (let i = 0; i < sc.probeTTLs.length; i++) {
+        const probeTTL = sc.probeTTLs[i];
+        const ok = await this._simulateProbe(probeTTL, token, i + 1, true);
+        if (!ok || this._isAborted(token)) break;
+        await this._sleepSafe(400, token);
+        this._diagram?.reset();
+      }
+
+      if (!this._isAborted(token)) {
+        this._setStatus(
+          'Traceroute Completed',
+          'Probes mapped the route as R1 -> R2 -> R3 -> destination.',
+          'success'
+        );
+      }
+    } else {
+      await this._simulateProbe(sc.initialTTL, token, 1, false);
+    }
+
+    if (token === this._runToken) {
+      this._running = false;
+      if (runBtn) runBtn.removeAttribute('disabled');
+    }
+  }
+
+  async _simulateProbe(initialTTL, token, probeIndex, isTraceroute) {
+    let ttl = initialTTL;
+    this._ttlBase = initialTTL;
+    this._setTTLDisplay(ttl, initialTTL);
+
+    this._appendLog(
+      isTraceroute ? `P${probeIndex}` : 'TX',
+      'SRC',
+      `${ttl}`,
+      isTraceroute ? `Probe launched (TTL=${ttl})` : 'Packet sent from source',
+      'info'
+    );
+
+    for (let i = 0; i < FORWARD_PATH.length - 1; i++) {
+      const from = FORWARD_PATH[i];
+      const to = FORWARD_PATH[i + 1];
+
+      const moved = await this._animateSafe(
+        [from, to],
+        { type: 'data', label: `TTL ${ttl}`, speed: 430 },
+        token
+      );
+      if (!moved) return false;
+
+      if (ROUTER_HOPS.has(to)) {
+        const ttlBefore = ttl;
+        ttl = ttl - 1;
+        this._setTTLDisplay(ttl, initialTTL);
+
+        if (ttl <= 0) {
+          this._diagram.highlightNode(to, 'error', 1500);
+          this._appendLog(
+            isTraceroute ? `P${probeIndex}` : `H${i + 1}`,
+            to.toUpperCase(),
+            `${ttlBefore}->0`,
+            'Drop + ICMP Time Exceeded',
+            'error'
+          );
+          this._setStatus(
+            'TTL Expired',
+            `${to.toUpperCase()} decremented TTL to 0 and dropped the packet. ICMP Time Exceeded returned to source.`,
+            'error'
+          );
+
+          const reversePath = this._buildReturnPath(to);
+          const icmpOk = await this._animateSafe(
+            reversePath,
+            { type: 'icmp', label: 'ICMP Time Exceeded', speed: 390 },
+            token
+          );
+          if (!icmpOk) return false;
+
+          this._diagram.highlightNode('src', 'error', 1000);
+          this._appendLog(
+            isTraceroute ? `P${probeIndex}` : 'ICMP',
+            'SRC',
+            '--',
+            `Time Exceeded received from ${to.toUpperCase()}`,
+            'error'
+          );
+          return true;
+        }
+
+        this._diagram.highlightNode(to, 'hop', 850);
+        this._appendLog(
+          isTraceroute ? `P${probeIndex}` : `H${i + 1}`,
+          to.toUpperCase(),
+          `${ttlBefore}->${ttl}`,
+          'Forwarded',
+          'success'
+        );
+
+        const stillAlive = await this._sleepSafe(180, token);
+        if (!stillAlive) return false;
+      } else if (to === 'dst') {
+        this._diagram.highlightNode('dst', 'success', 1700);
+        this._appendLog(
+          isTraceroute ? `P${probeIndex}` : 'RX',
+          'DST',
+          `${ttl}`,
+          'Packet delivered',
+          'success'
+        );
+        this._setStatus(
+          'Packet Delivered',
+          `Destination received packet with TTL=${ttl}.`,
+          'success'
+        );
+
+        if (isTraceroute) {
+          const replyOk = await this._animateSafe(
+            this._buildReturnPath('dst'),
+            { type: 'icmp', label: 'Echo Reply', speed: 370 },
+            token
+          );
+          if (!replyOk) return false;
+          this._appendLog(`P${probeIndex}`, 'SRC', '--', 'Echo Reply received', 'success');
+        } else {
+          showToast('Packet delivered successfully', 'success', 2500);
+          stateManager.mergeState('userProgress', {
+            completedModules: [
+              ...new Set([
+                ...(stateManager.getState('userProgress')?.completedModules || []),
+                '/ttl-simulation',
+              ]),
+            ],
+          });
+        }
+        return true;
+      }
+    }
+
+    return true;
+  }
+
+  _buildReturnPath(nodeId) {
+    const idx = FORWARD_PATH.indexOf(nodeId);
+    if (idx <= 0) return ['src'];
+    return FORWARD_PATH.slice(0, idx + 1).reverse();
+  }
+
+  _setTTLDisplay(ttl, base = this._ttlBase) {
+    const ttlEl = this.container?.querySelector('#ttlx-ttl-value');
+    const barEl = this.container?.querySelector('#ttlx-ttl-bar');
+    if (!ttlEl || !barEl) return;
+
+    ttlEl.textContent = String(ttl);
+    ttlEl.classList.remove('is-warning', 'is-error');
+    if (ttl <= 0) ttlEl.classList.add('is-error');
+    else if (ttl <= 2) ttlEl.classList.add('is-warning');
+
+    const pct = Math.max(0, Math.min(100, (ttl / Math.max(1, base)) * 100));
+    barEl.style.width = `${pct}%`;
+    barEl.classList.remove('is-warning', 'is-error');
+    if (ttl <= 0) barEl.classList.add('is-error');
+    else if (ttl <= 2) barEl.classList.add('is-warning');
+  }
+
+  _setStatus(title, desc, tone = 'info') {
+    const titleEl = this.container?.querySelector('#ttlx-status-title');
+    const descEl = this.container?.querySelector('#ttlx-status-desc');
+    if (titleEl) {
+      titleEl.textContent = title;
+      titleEl.className = `ttlx-status is-${tone}`;
+    }
+    if (descEl) descEl.textContent = desc;
+  }
+
+  _clearLog() {
+    const body = this.container?.querySelector('#ttlx-log-body');
+    if (!body) return;
+    body.innerHTML = '<div class="ttlx-log__empty">Awaiting simulation...</div>';
+  }
+
+  _appendLog(hop, device, ttl, result, tone = 'info') {
+    const body = this.container?.querySelector('#ttlx-log-body');
+    if (!body) return;
+    const empty = body.querySelector('.ttlx-log__empty');
+    if (empty) empty.remove();
+
+    const row = document.createElement('div');
+    row.className = `ttlx-log__row is-${tone}`;
+    row.innerHTML = `
+      <span>${hop}</span>
+      <span>${device}</span>
+      <span>${ttl}</span>
+      <span>${result}</span>
+    `;
+    body.appendChild(row);
+    body.scrollTop = body.scrollHeight;
+  }
+
+  _injectStyles() {
+    if (document.getElementById('ttlx-styles')) return;
+
+    const style = document.createElement('style');
+    style.id = 'ttlx-styles';
+    style.textContent = resolveInjectedCssTokens(`
+      .ttlx-wrap {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+      }
+      .ttlx-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 390px;
+        gap: 1rem;
+        align-items: start;
+      }
+      .ttlx-main, .ttlx-side {
+        display: flex;
+        flex-direction: column;
+        gap: 0.9rem;
+      }
+      .ttlx-card {
+        background: #0f172a;
+        border: 1px solid #1f2a44;
+        border-radius: 12px;
+        padding: 0.75rem;
+      }
+      .ttlx-card__head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        color: #93c5fd;
+        font: 700 0.72rem var(--font-mono);
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        margin-bottom: 0.6rem;
+      }
+      .ttlx-subhead {
+        color: #7dd3fc;
+        font-size: 0.66rem;
+        text-transform: none;
+        letter-spacing: 0;
+      }
+      .ttlx-scenarios {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.45rem;
+      }
+      .ttlx-scenario {
+        border: 1px solid #334155;
+        background: #111827;
+        color: #a5b4fc;
+        border-radius: 8px;
+        padding: 0.4rem 0.65rem;
+        font: 600 0.72rem var(--font-mono);
+        cursor: pointer;
+      }
+      .ttlx-scenario.is-active {
+        border-color: #22d3ee;
+        color: #22d3ee;
+        background: rgba(34, 211, 238, 0.12);
+      }
+      .ttlx-topology {
+        padding-bottom: 0.5rem;
+      }
+      .ttlx-canvas {
+        min-height: 520px;
+        background: linear-gradient(180deg, #050c17 0%, #071021 100%);
+        border-radius: 10px;
+        border: 1px solid #1e293b;
+      }
+      .ttlx-controls {
+        display: flex;
+        gap: 0.6rem;
+      }
+      .ttlx-gauge-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.45rem;
+      }
+      .ttlx-label {
+        color: #94a3b8;
+        font: 600 0.72rem var(--font-mono);
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+      }
+      .ttlx-ttl {
+        color: #22d3ee;
+        font: 800 1rem var(--font-mono);
+      }
+      .ttlx-ttl.is-warning {
+        color: #fbbf24;
+      }
+      .ttlx-ttl.is-error {
+        color: #ef4444;
+      }
+      .ttlx-gauge {
+        height: 10px;
+        background: #0b1223;
+        border: 1px solid #243447;
+        border-radius: 999px;
+        overflow: hidden;
+      }
+      .ttlx-gauge__bar {
+        height: 100%;
+        width: 100%;
+        background: linear-gradient(90deg, #22d3ee, #06b6d4);
+        transition: width 280ms ease, background 280ms ease;
+      }
+      .ttlx-gauge__bar.is-warning {
+        background: #f59e0b;
+      }
+      .ttlx-gauge__bar.is-error {
+        background: #ef4444;
+      }
+      .ttlx-status {
+        font: 700 0.95rem var(--font-display);
+        color: #cbd5e1;
+        margin-bottom: 0.45rem;
+      }
+      .ttlx-status.is-success {
+        color: #22c55e;
+      }
+      .ttlx-status.is-error {
+        color: #ef4444;
+      }
+      .ttlx-status.is-info {
+        color: #60a5fa;
+      }
+      .ttlx-status__desc {
+        color: #94a3b8;
+        margin: 0;
+        line-height: 1.65;
+        font-size: 0.84rem;
+      }
+      .ttlx-log {
+        border: 1px solid #1e293b;
+        border-radius: 10px;
+        overflow: hidden;
+      }
+      .ttlx-log__head, .ttlx-log__row {
+        display: grid;
+        grid-template-columns: 56px 78px 98px 1fr;
+        gap: 0.45rem;
+        align-items: center;
+        padding: 0.45rem 0.55rem;
+        font-family: var(--font-mono);
+        font-size: 0.68rem;
+      }
+      .ttlx-log__head {
+        background: #0b1223;
+        color: #7dd3fc;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        border-bottom: 1px solid #1f2a44;
+      }
+      .ttlx-log__body {
+        max-height: 380px;
+        overflow: auto;
+        background: #070d18;
+      }
+      .ttlx-log__row {
+        border-bottom: 1px solid #172135;
+        color: #cbd5e1;
+      }
+      .ttlx-log__row.is-error {
+        background: rgba(239, 68, 68, 0.08);
+      }
+      .ttlx-log__row.is-success {
+        background: rgba(34, 197, 94, 0.06);
+      }
+      .ttlx-log__empty {
+        color: #64748b;
+        text-align: center;
+        padding: 0.9rem 0.4rem;
+        font-size: 0.75rem;
+      }
+      .ttlx-notes p {
+        margin: 0 0 0.55rem 0;
+        color: #94a3b8;
+        font-size: 0.78rem;
+        line-height: 1.55;
+      }
+      .ttlx-notes strong {
+        color: #f8fafc;
+      }
+      @media (max-width: 1300px) {
+        .ttlx-grid {
+          grid-template-columns: minmax(0, 1fr);
+        }
+      }
+    `);
+
+    document.head.appendChild(style);
   }
 }
 

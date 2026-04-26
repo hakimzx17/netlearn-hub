@@ -20,8 +20,8 @@
  * Depends on: eventBus.js
  */
 
-import { eventBus }    from '../js/eventBus.js';
-import { generateId, sleep } from '../utils/helperFunctions.js';
+import { eventBus } from '../js/eventBus.js';
+import { generateId } from '../utils/helperFunctions.js';
 
 // SVG dimensions and node sizing constants
 const SVG_DEFAULTS = { width: 1000, height: 650 };
@@ -72,12 +72,14 @@ class NetworkDiagram {
   constructor() {
     this._container  = null;
     this._topology   = null;
+    this._options    = {};
     this._svgEl      = null;
     this._animQueue  = [];
     this._isAnimating = false;
     this._nodeEls    = {};   // nodeId → SVG group element
     this._linkEls    = {};   // 'from-to' → SVG line element
     this._packets    = {};   // packetId → circle element
+    this._pendingBadges = [];
   }
 
   /**
@@ -88,13 +90,18 @@ class NetworkDiagram {
    * @param {Object} [options]
    * @param {number} [options.width]
    * @param {number} [options.height]
+   * @param {'legacy'|'compact'} [options.labelMode='legacy']
+   * @param {boolean} [options.compactPortLabels=false]
+   * @param {boolean} [options.linkBadge=true]
    */
   init(containerEl, topology, options = {}) {
     this._container = containerEl;
     this._topology  = topology;
+    this._options   = options;
     this._nodeEls   = {};
     this._linkEls   = {};
     this._packets   = {};
+    this._pendingBadges = [];
 
     const width  = options.width  || SVG_DEFAULTS.width;
     const height = options.height || SVG_DEFAULTS.height;
@@ -103,7 +110,9 @@ class NetworkDiagram {
     this._container.innerHTML = '';
     this._container.appendChild(this._svgEl);
 
+    this._renderZones();
     this._renderLinks();
+    this._flushPendingBadges();
     this._renderNodes();
     this._bindNodeEvents();
   }
@@ -234,6 +243,45 @@ class NetworkDiagram {
   }
 
   /**
+   * Set link visual state between two nodes.
+   * @param {string} fromId
+   * @param {string} toId
+   * @param {'active'|'dim'|'idle'} state
+   */
+  setLinkState(fromId, toId, state = 'idle') {
+    const key  = `${fromId}-${toId}`;
+    const line = this._linkEls[key];
+    if (!line) return;
+
+    line.classList.remove('is-active', 'is-dim');
+    line.setAttribute('stroke', 'var(--color-border)');
+    line.setAttribute('stroke-width', '2');
+    line.style.opacity = '1';
+
+    if (state === 'active') {
+      line.classList.add('is-active');
+      line.setAttribute('stroke', 'var(--color-cyan)');
+      line.setAttribute('stroke-width', '2.6');
+      line.style.opacity = '1';
+    } else if (state === 'dim') {
+      line.classList.add('is-dim');
+      line.style.opacity = '0.25';
+    }
+  }
+
+  /**
+   * Set state for a full path.
+   * @param {string[]} nodePath
+   * @param {'active'|'dim'|'idle'} state
+   */
+  setPathState(nodePath, state = 'idle') {
+    if (!Array.isArray(nodePath) || nodePath.length < 2) return;
+    for (let i = 0; i < nodePath.length - 1; i++) {
+      this.setLinkState(nodePath[i], nodePath[i + 1], state);
+    }
+  }
+
+  /**
    * Show a floating info label at a position (for packet tooltips).
    * Auto-removes after duration.
    * @param {string} text
@@ -312,8 +360,55 @@ class NetworkDiagram {
     return svg;
   }
 
+  _renderZones() {
+    const zones = this._topology?.zones || [];
+    zones.forEach(zone => {
+      const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      group.setAttribute('class', 'network-zone');
+
+      const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      rect.setAttribute('x', zone.x);
+      rect.setAttribute('y', zone.y);
+      rect.setAttribute('width', zone.width);
+      rect.setAttribute('height', zone.height);
+      rect.setAttribute('rx', zone.radius || 28);
+      rect.setAttribute('fill', zone.fill || 'rgba(0, 212, 255, 0.06)');
+      rect.setAttribute('stroke', zone.stroke || 'rgba(0, 212, 255, 0.3)');
+      rect.setAttribute('stroke-width', zone.strokeWidth || '1.5');
+      rect.setAttribute('stroke-dasharray', zone.strokeDasharray || '5 4');
+      group.appendChild(rect);
+
+      if (zone.title) {
+        const title = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        title.setAttribute('x', zone.x + 14);
+        title.setAttribute('y', zone.y + 22);
+        title.setAttribute('fill', zone.titleColor || '#dce7f6');
+        title.setAttribute('font-size', zone.titleSize || '12');
+        title.setAttribute('font-family', 'JetBrains Mono, monospace');
+        title.setAttribute('font-weight', '700');
+        title.textContent = zone.title;
+        group.appendChild(title);
+      }
+
+      if (zone.subnet) {
+        const subnet = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        subnet.setAttribute('x', zone.x + (zone.width / 2));
+        subnet.setAttribute('y', zone.y + zone.height - 12);
+        subnet.setAttribute('text-anchor', 'middle');
+        subnet.setAttribute('fill', zone.subnetColor || '#90a4bf');
+        subnet.setAttribute('font-size', zone.subnetSize || '12');
+        subnet.setAttribute('font-family', 'JetBrains Mono, monospace');
+        subnet.setAttribute('font-weight', '600');
+        subnet.textContent = zone.subnet;
+        group.appendChild(subnet);
+      }
+
+      this._svgEl.appendChild(group);
+    });
+  }
+
   _renderLinks() {
-    const { links, nodes } = this._topology;
+    const { links = [], nodes = [] } = this._topology;
     links.forEach(link => {
       const from = nodes.find(n => n.id === link.from);
       const to   = nodes.find(n => n.id === link.to);
@@ -329,38 +424,87 @@ class NetworkDiagram {
       line.setAttribute('stroke-width', '2');
 
       // Midpoint label
-      if (link.label) {
+      if (link.label || link.subnet) {
         const midX = (from.x + to.x) / 2;
         const midY = (from.y + to.y) / 2;
         
         // Detect vertical link and offset badge upward to avoid device text
         const isVerticalLink = Math.abs(from.y - to.y) > Math.abs(from.x - to.x);
-        const yOffset = isVerticalLink ? -40 : -20;
+        const showLinkBadge = this._options.linkBadge !== false;
+        const yOffset = showLinkBadge
+          ? (isVerticalLink ? -44 : -22)
+          : (isVerticalLink ? -30 : -10);
+        const lines = [link.label, link.subnet].filter(Boolean);
+        const hasTwoLines = lines.length > 1;
+        const labelText = String(link.label || '').trim();
+        const useCompactPortLabels = Boolean(this._options.compactPortLabels);
+        const isPortLabel = /^G0\/[0-2]$/i.test(labelText);
+        const useCompactBadge = showLinkBadge && useCompactPortLabels && isPortLabel;
+        const primaryFontSize = useCompactBadge ? 9 : (showLinkBadge ? 11 : 10);
+        const subFontSize = useCompactBadge ? 8 : 9;
+        const minBadgeWidth = useCompactBadge ? 44 : 52;
+        const badgePaddingX = useCompactBadge ? 8 : 12;
+        const charWidth = useCompactBadge ? 5.2 : 6.1;
+        const maxLen = Math.max(...lines.map(v => String(v).length), 0);
+        const badgeWidth = Math.max(minBadgeWidth, Math.ceil((maxLen * charWidth) + (badgePaddingX * 2)));
+        const badgeHeight = hasTwoLines ? (useCompactBadge ? 26 : 30) : (useCompactBadge ? 16 : 20);
+        const primaryTextY = hasTwoLines
+          ? (useCompactBadge ? 11 : 12)
+          : (useCompactBadge ? 12 : 15);
+        const subTextY = useCompactBadge ? 21 : 24;
         
-        // Background for label
-        const bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-        bgRect.setAttribute('x', midX - 26);
-        bgRect.setAttribute('y', midY + yOffset);
-        bgRect.setAttribute('width', 52);
-        bgRect.setAttribute('height', 20);
-        bgRect.setAttribute('rx', 6);
-        bgRect.setAttribute('fill', '#1a1a2e');
-        bgRect.setAttribute('stroke', '#FFD93D');
-        bgRect.setAttribute('stroke-width', '2');
-        
+        if (showLinkBadge) {
+          // Background for label
+          const bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+          bgRect.setAttribute('x', midX - (badgeWidth / 2));
+          bgRect.setAttribute('y', midY + yOffset);
+          bgRect.setAttribute('width', badgeWidth);
+          bgRect.setAttribute('height', badgeHeight);
+          bgRect.setAttribute('rx', 6);
+          bgRect.setAttribute('fill', '#1a1a2e');
+          bgRect.setAttribute('stroke', '#FFD93D');
+          bgRect.setAttribute('stroke-width', '2');
+          this._pendingBadges = this._pendingBadges || [];
+          this._pendingBadges.push(bgRect);
+        }
+
         const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
         text.setAttribute('x', midX);
-        text.setAttribute('y', midY + yOffset + 15);
+        text.setAttribute('y', midY + yOffset + primaryTextY);
         text.setAttribute('text-anchor', 'middle');
-        text.setAttribute('fill', '#FFD93D');
-        text.setAttribute('font-size', '11');
+        text.setAttribute('fill', showLinkBadge ? '#FFD93D' : '#d9e8ff');
+        text.setAttribute('font-size', String(primaryFontSize));
         text.setAttribute('font-family', 'JetBrains Mono, monospace');
         text.setAttribute('font-weight', '700');
-        text.textContent = link.label;
+        if (!showLinkBadge) {
+          text.setAttribute('stroke', '#061225');
+          text.setAttribute('stroke-width', '0.8');
+          text.setAttribute('paint-order', 'stroke fill');
+        }
+        text.textContent = lines[0] || '';
+
+        if (hasTwoLines) {
+          const sub = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          sub.setAttribute('x', midX);
+          sub.setAttribute('y', midY + yOffset + subTextY);
+          sub.setAttribute('text-anchor', 'middle');
+          sub.setAttribute('fill', '#cde8ff');
+          sub.setAttribute('font-size', String(subFontSize));
+          sub.setAttribute('font-family', 'JetBrains Mono, monospace');
+          sub.setAttribute('font-weight', '600');
+          if (!showLinkBadge) {
+            sub.setAttribute('stroke', '#061225');
+            sub.setAttribute('stroke-width', '0.8');
+            sub.setAttribute('paint-order', 'stroke fill');
+          }
+          sub.textContent = lines[1];
+          this._pendingBadges = this._pendingBadges || [];
+          this._pendingBadges.push(sub);
+        }
         
         // Store badge elements for later addition (after lines)
         this._pendingBadges = this._pendingBadges || [];
-        this._pendingBadges.push(bgRect, text);
+        this._pendingBadges.push(text);
       }
 
       this._svgEl.appendChild(line);
@@ -369,6 +513,12 @@ class NetworkDiagram {
       this._linkEls[key]  = line;
       this._linkEls[key2] = line;
     });
+  }
+
+  _flushPendingBadges() {
+    if (!this._pendingBadges?.length) return;
+    this._pendingBadges.forEach(el => this._svgEl.appendChild(el));
+    this._pendingBadges = [];
   }
 
   _renderNodes() {
@@ -385,25 +535,28 @@ class NetworkDiagram {
     group.setAttribute('transform', `translate(${node.x}, ${node.y})`);
     group.setAttribute('class', `device-node device-${node.type}`);
     group.setAttribute('data-node-id', node.id);
-    group.setAttribute('style', `color: ${DEVICE_COLOR_VAR[node.type] || 'var(--color-text-secondary)'}; cursor:pointer;`);
+    const nodeColor = DEVICE_COLOR_VAR[node.type] || 'var(--color-text-secondary)';
+    group.setAttribute('style', `color: ${nodeColor}; cursor:pointer;`);
 
     const iconSvg = DEVICE_ICONS[node.type] || DEVICE_ICONS.pc;
-    const labelY = node.y + 44;
-    const macY = node.y + 58;
-    const ipY = node.y + 70;
+    const labelMode = this._options.labelMode || 'legacy';
+    const yBase = labelMode === 'compact' ? 0 : node.y;
+    const labelY = node.labelY ?? (yBase + 44);
+    const macY = node.macY ?? (yBase + 58);
+    const ipY = node.ipY ?? (yBase + (node.mac ? 70 : 58));
     
     group.innerHTML = `
       ${iconSvg}
       <text class="node-label" text-anchor="middle" y="${labelY}"
-        fill="${DEVICE_COLOR_VAR[node.type]}"
-        font-size="12" font-family="Nunito, sans-serif"
+        fill="${nodeColor}"
+        font-size="12" font-family="var(--font-body)"
         font-weight="600">
         ${node.label}
       </text>
       ${node.mac ? `
         <text class="node-sublabel" text-anchor="middle" y="${macY}"
           fill="#4ECDC4"
-          font-size="10" font-family="Nunito, sans-serif"
+          font-size="10" font-family="var(--font-body)"
           font-weight="400">
           ${node.mac}
         </text>
@@ -411,7 +564,7 @@ class NetworkDiagram {
       ${node.ip ? `
         <text class="node-sublabel" text-anchor="middle" y="${ipY}"
           fill="var(--color-text-muted)"
-          font-size="10" font-family="Nunito, sans-serif"
+          font-size="10" font-family="var(--font-body)"
           font-weight="400">
           ${node.ip}
         </text>
@@ -432,9 +585,6 @@ class NetworkDiagram {
   }
 
   _createPacketLabel(text, x, y) {
-    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-    
-    // Background rect for better visibility
     const textEl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
     textEl.setAttribute('x', x);
     textEl.setAttribute('y', y - 20);
@@ -446,9 +596,8 @@ class NetworkDiagram {
     textEl.setAttribute('stroke', '#1a1a2e');
     textEl.setAttribute('stroke-width', '0.8');
     textEl.textContent = text;
-    
-    g.appendChild(textEl);
-    return g;
+
+    return textEl;
   }
 
   /**

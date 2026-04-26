@@ -1,0 +1,16 @@
+import { q } from './helpers.js';
+
+const firewallsIpsBank = [
+  q('d5-5-8-q1', 'What is the main role of a firewall?', ['Enforce policy at a trust boundary', 'Assign IP addresses', 'Replace routing tables', 'Create DHCP bindings'], 0, 'easy', 'A firewall enforces traffic policy between trust boundaries.'),
+  q('d5-5-8-q2', 'What best distinguishes a stateful firewall from a stateless one?', ['A stateful firewall tracks session context', 'A stateless firewall always uses certificates', 'A stateful firewall cannot filter ports', 'There is no difference'], 0, 'easy', 'Stateful inspection tracks session context, unlike stateless filtering.'),
+  q('d5-5-8-q3', 'What is the main idea behind security zones?', ['They define traffic boundaries for policy enforcement', 'They replace VLANs completely', 'They are only for wireless clients', 'They disable ACLs'], 0, 'medium', 'Zones define trust boundaries and organize firewall policy enforcement.'),
+  q('d5-5-8-q4', 'What is a key idea behind NGFW capabilities?', ['More context than simple port-based filtering alone', 'Only static packet filtering', 'No awareness of applications or threat context', 'Only DHCP relay support'], 0, 'medium', 'NGFW thinking adds more context than basic port and protocol filtering alone.'),
+  q('d5-5-8-q5', 'What does signature-based IPS detection rely on?', ['Known bad patterns or signatures', 'Only bandwidth usage', 'NTP drift', 'Wildcard masks'], 0, 'easy', 'Signature-based IPS looks for known malicious patterns.'),
+  q('d5-5-8-q6', 'What does anomaly-based IPS detection try to identify?', ['Behavior that deviates from expected normal patterns', 'Only explicit known attack signatures', 'Only wireless encryption settings', 'Only Telnet sessions'], 0, 'medium', 'Anomaly-based detection looks for abnormal behavior compared to expected norms.'),
+  q('d5-5-8-q7', 'Why is session awareness valuable in a firewall?', ['It allows decisions with context of the larger connection', 'It removes the need for routing', 'It disables logging', 'It prevents all attacks automatically'], 0, 'medium', 'Session awareness helps the firewall make decisions in the context of the larger flow.'),
+  q('d5-5-8-q8', 'Which statement best matches stateless filtering?', ['Each packet is evaluated without full session memory', 'The firewall always tracks every flow deeply', 'It is used only with VPNs', 'It cannot filter traffic at all'], 0, 'medium', 'Stateless filtering evaluates packets individually without deeper session context.'),
+  q('d5-5-8-q9', 'Why does IPS classification matter?', ['Because known-pattern and anomaly approaches solve detection differently', 'Because all IPS models work the same way', 'Because IPS replaces ACL placement', 'Because IPS is only for email'], 0, 'medium', 'Different IPS detection approaches identify threats in different ways.'),
+  q('d5-5-8-q10', 'What is the best summary of firewalls and IPS?', ['Firewalls enforce policy, and IPS adds threat-detection logic', 'They are identical technologies', 'They replace authentication systems', 'They only matter on WAN links'], 0, 'hard', 'Firewalls enforce policy at boundaries, while IPS adds detection and prevention logic for suspicious behavior.'),
+];
+
+export default firewallsIpsBank;

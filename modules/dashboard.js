@@ -1,263 +1,558 @@
 /**
- * dashboard.js — Home / Dashboard Module
+ * dashboard.js — Command Center Dashboard
  *
- * Phase 9 upgrade:
- *   - Live per-category completion rings
- *   - Stats bar (modules done, exam best score, streak)
- *   - Keyboard shortcut reference
- *   - Module cards show completed state via data attribute
- *
- * Depends on: eventBus, stateManager
+ * Implements the "Immersive Tactical HUD" rework.
+ * Preserves existing learning/progress logic while presenting
+ * a redesigned mission-focused interface.
  */
 
-import { eventBus }    from '../js/eventBus.js';
 import { stateManager } from '../js/stateManager.js';
+import { progressEngine } from '../js/progressEngine.js';
+import { eventBus } from '../js/eventBus.js';
+import { ALL_PATHS, findPathForModule, getAllSimulations, getCurriculumStats } from '../data/pathRegistry.js';
+import { ACHIEVEMENTS } from '../data/achievements.js';
 
-const MODULE_CATALOG = [
-  {
-    category: 'Protocol Headers',
-    color: 'var(--color-cyan)',
-    icon: '📦',
-    modules: [
-      { route: '/ipv4-header',    icon: '📦', title: 'IPv4 Header Game',        desc: 'Drag and drop all 13 IPv4 header fields into the correct positions.' },
-      { route: '/ethernet-frame', icon: '🔗', title: 'Ethernet Frame Game',     desc: 'Assemble a complete Ethernet II frame from its individual components.' },
-      { route: '/osi-tcpip',      icon: '📚', title: 'OSI / TCP-IP Visualizer', desc: 'Map protocols to OSI layers and animate the encapsulation process.' },
-      { route: '/ip-classes',     icon: '🗂',  title: 'IP Address Classes',      desc: 'Explore Class A–E ranges, private RFC 1918 space, and live lookup.' },
-    ],
-  },
-  {
-    category: 'Network Simulations',
-    color: 'var(--color-amber)',
-    icon: '🔬',
-    modules: [
-      { route: '/packet-journey', icon: '🚀', title: 'Packet Journey',          desc: 'Follow a complete HTTP request: DNS → ARP → TCP → NAT → routing.' },
-      { route: '/ttl-simulation', icon: '⏱',  title: 'TTL Simulation',          desc: 'Watch TTL decrement at each router hop and trigger ICMP expiry.' },
-      { route: '/arp-simulation', icon: '📡', title: 'ARP Simulator',           desc: 'Broadcast ARP request, flood, unicast reply, cache population.' },
-      { route: '/mac-table',      icon: '🔀', title: 'MAC Table Learning',      desc: 'See how a switch dynamically learns MACs and switches flood vs. forward.' },
-      { route: '/routing-table',  icon: '🗺',  title: 'Routing Table Sim',       desc: 'Enter any destination IP and watch Longest Prefix Match in action.' },
-    ],
-  },
-  {
-    category: 'Subnetting Tools',
-    color: 'var(--color-green)',
-    icon: '🧮',
-    modules: [
-      { route: '/subnet-practice',   icon: '🧮', title: 'Subnet Practice',      desc: '15 exam-style drills across 3 difficulty tiers with guided explanations.' },
-      { route: '/vlsm-design',       icon: '📐', title: 'VLSM Design',          desc: 'Design variable-length allocations with address space visualisation.' },
-      { route: '/subnet-calculator', icon: '🔢', title: 'Subnet Calculator',     desc: 'Live binary visualisation and step-by-step subnet derivation.' },
-    ],
-  },
-  {
-    category: 'Exam & Reference',
-    color: 'var(--color-error)',
-    icon: '📝',
-    modules: [
-      { route: '/exam',      icon: '📝', title: 'CCNA Exam Mode',      desc: 'Timed 60-question exam with per-topic breakdown and full review.' },
-      { route: '/resources', icon: '📖', title: 'Resource Library',    desc: 'Protocol reference, CIDR cheat sheet, port tables, and glossary.' },
-    ],
-  },
-];
+const ICONS = {
+  network: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2"/><circle cx="5" cy="12" r="2"/><circle cx="19" cy="12" r="2"/><circle cx="12" cy="19" r="2"/><path d="M12 7v10M7 12h10"/></svg>`,
+  zap: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`,
+  check: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>`,
+  activity: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9-6-18-3 9H2"/></svg>`,
+  play: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>`,
+  sparkles: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.7 4.7L18 9.4l-4.3 1.7L12 16l-1.7-4.9L6 9.4l4.3-1.7z"/><path d="M5 3l.7 2 .3.1L8 6l-2 1-.3.1L5 9l-.7-1.9-.3-.1L2 6l2-1 .3-.1z"/><path d="M19 13l.8 2.1.2.1L22 16l-2 .8-.2.1L19 19l-.8-2.1-.2-.1L16 16l2-.8.2-.1z"/></svg>`,
+  bot: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4M8 16h.01M16 16h.01"/></svg>`,
+  external: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3h7v7"/><path d="M10 14 21 3"/><path d="M21 14v7h-7"/><path d="M3 10V3h7"/><path d="M3 21h7v-7"/></svg>`,
+  chevron: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`,
+  cpu: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3"/></svg>`,
+  globe: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>`,
+  shield: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`,
+  send: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>`,
+  book: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>`,
+  flask: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2v7.3L4.2 19A2 2 0 0 0 6 22h12a2 2 0 0 0 1.8-3L14 9.3V2"/><path d="M8.5 2h7"/><path d="M7 16h10"/></svg>`,
+};
 
-const TOTAL_MODULES = MODULE_CATALOG.reduce((n, c) => n + c.modules.length, 0);
-
-const SHORTCUTS = [
-  { keys: 'Ctrl + /',  desc: 'Go to Home'  },
-  { keys: 'Ctrl + E',  desc: 'Open Exam'   },
-  { keys: 'Esc',       desc: 'Close modal' },
-];
+function icon(name, className = '') {
+  return `<span class="${className}">${ICONS[name] || ICONS.activity}</span>`;
+}
 
 class Dashboard {
   constructor() {
-    this.container    = null;
-    this._unsubscribe = null;
+    this.container = null;
+    this._lastModel = null;
   }
 
   init(containerEl) {
     this.container = containerEl;
     this._render();
-
-    this._unsubscribe = stateManager.subscribe('userProgress', () => {
-      this._updateLiveRegions();
-    });
   }
 
   _render() {
-    const progress  = stateManager.getState('userProgress');
-    const completed = new Set(progress.completedModules || []);
-    const doneCount = completed.size;
-    const examBest  = progress.bestExamScore || 0;
-    const history   = stateManager.getState('examHistory') || [];
+    const model = this._buildModel();
+    this._lastModel = model;
 
-    this.container.innerHTML = `
-      <div class="dashboard">
+    const runwayHtml = this._renderRunway(ALL_PATHS);
 
-        <!-- ── Hero ───────────────────────────────────────── -->
-        <div class="dashboard__hero">
-          <div style="display:flex; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; gap:1.5rem; margin-bottom:2rem;">
-            <div>
-              <div class="text-mono text-xs text-muted" style="text-transform:uppercase; letter-spacing:0.1em; margin-bottom:0.75rem;">
-                <span class="status-dot"></span> Network Learning Platform
-              </div>
-              <h1 style="
-                font-size: clamp(2rem, 5vw, 3.25rem); font-weight: 800; line-height: 1.1; margin-bottom: 1rem;
-                background: linear-gradient(135deg, #e8f4fd 40%, #00d4ff);
-                -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
-              ">Master<br>Networking</h1>
-              <p style="font-size:1.0625rem; color:var(--color-text-secondary); max-width:520px; line-height:1.8;">
-                Interactive simulations, protocol visualisers, subnetting tools,
-                and CCNA exam preparation — all in one platform.
-              </p>
-            </div>
-
-            <!-- Overall progress widget -->
-            <div class="card" style="min-width:180px; text-align:center; flex-shrink:0;">
-              <div class="text-mono text-xs text-muted" style="text-transform:uppercase; letter-spacing:0.08em; margin-bottom:0.5rem;">Progress</div>
-              <div id="db-progress-count" style="font-size:2.5rem; font-weight:800; font-family:var(--font-mono); color:var(--color-cyan); line-height:1;">
-                ${doneCount}<span style="font-size:1rem; color:var(--color-text-muted);">/${TOTAL_MODULES}</span>
-              </div>
-              <div class="text-sm text-secondary" style="margin-top:0.2rem;">modules completed</div>
-              <div style="margin-top:0.75rem; height:6px; background:var(--color-bg-raised); border-radius:99px; overflow:hidden;">
-                <div id="db-progress-bar" style="
-                  height:100%; border-radius:99px;
-                  background:linear-gradient(90deg, var(--color-cyan), var(--color-amber));
-                  width:${TOTAL_MODULES > 0 ? ((doneCount / TOTAL_MODULES) * 100).toFixed(1) : 0}%;
-                  transition:width 0.6s ease;
-                "></div>
-              </div>
-            </div>
+    const telemetryHtml = `
+      <aside class="hud-telemetry">
+        <article class="hud-card">
+          <div class="hud-card__label">
+            <span>Curriculum Coverage</span>
+            <span>${model.completionRate}%</span>
           </div>
-
-          <!-- Stats bar -->
-          <div class="dashboard__stats">
-            ${this._renderStatCard(doneCount, 'Modules Done',    'var(--color-cyan)')}
-            ${this._renderStatCard(TOTAL_MODULES - doneCount, 'Remaining',  'var(--color-text-muted)')}
-            ${this._renderStatCard(examBest ? examBest + '%' : '—', 'Best Exam Score', examBest >= 70 ? 'var(--color-success)' : 'var(--color-warning)')}
-            ${this._renderStatCard(history.length, 'Exams Taken',     'var(--color-amber)')}
+          <div class="hud-stat-row">
+            <div class="hud-stat-value">${model.completedCount}<span class="hud-stat-unit">/${model.totalModules}</span></div>
+            <div class="ops-stat-icon">${icon('book')}</div>
           </div>
-        </div>
+          <div class="ops-progress-bar ops-progress-bar--thin" role="progressbar" aria-label="Curriculum coverage" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${model.completionRate}">
+            <div class="ops-progress-fill" style="width:${model.completionRate}%"></div>
+          </div>
+          <div class="ops-snapshot-card__meta">${model.completedDomains}/${model.curriculumStats.domainCount} Domains Clear</div>
+        </article>
 
-        <!-- ── Category grids ──────────────────────────────── -->
-        <div id="db-categories">
-          ${MODULE_CATALOG.map((cat, ci) => this._renderCategory(cat, ci, completed)).join('')}
-        </div>
+        <article class="hud-card">
+          <div class="hud-card__label">
+            <span>Simulation Ledger</span>
+            <span>${model.simulationRate}%</span>
+          </div>
+          <div class="hud-stat-row">
+            <div class="hud-stat-value">${model.completedLabs}<span class="hud-stat-unit">/${model.curriculumStats.simulationCount}</span></div>
+            <div class="ops-stat-icon">${icon('flask')}</div>
+          </div>
+          <div class="ops-snapshot-card__meta">${model.liveSimulationCount} Active Engines Online</div>
+        </article>
 
-        <!-- ── Keyboard shortcuts ──────────────────────────── -->
-        <div style="margin-top:3rem; padding-top:1.5rem; border-top:1px solid var(--color-border);">
-          <div style="display:flex; gap:1.5rem; flex-wrap:wrap; align-items:center;">
-            <span class="text-mono text-xs text-muted" style="text-transform:uppercase; letter-spacing:0.06em;">Shortcuts</span>
-            ${SHORTCUTS.map(s => `
-              <div style="display:flex; align-items:center; gap:0.35rem; font-size:var(--text-xs); color:var(--color-text-muted);">
-                <kbd class="kbd">${s.keys}</kbd>
-                <span>${s.desc}</span>
+        <article class="hud-card">
+          <div class="hud-card__label">
+            <span>Level Sync</span>
+            <span>${model.level.title}</span>
+          </div>
+          <div class="hud-stat-row">
+            <div class="hud-stat-value">L${model.level.level}</div>
+            <div class="ops-stat-icon">${icon('shield')}</div>
+          </div>
+          <div class="ops-progress-bar ops-progress-bar--thin" role="progressbar" aria-label="Level progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${model.levelProgress}">
+            <div class="ops-progress-fill" style="width:${model.levelProgress}%"></div>
+          </div>
+          <div class="ops-snapshot-card__meta">${model.xpToNext} XP to L${model.level.level + 1}</div>
+        </article>
+
+        <article class="hud-card hud-card--activity">
+          <div class="hud-card__label">System Activity</div>
+          <div class="ops-log-list hud-log-list--compact">
+            ${model.logs.slice(0, 3).map(log => `
+              <div class="ops-log-item hud-log-item--compact ${log.muted ? 'ops-log-item--muted' : ''}">
+                <div class="ops-log-title hud-log-title--compact">${log.title}</div>
               </div>
             `).join('')}
           </div>
-        </div>
-
-      </div>
+          <div class="ops-actions-list hud-card__actions">
+             <button id="dash-flashcard-btn" type="button" class="ops-action-link ops-action-link--compact">${icon('sparkles')} Flashcard Sprint</button>
+             <a href="#/exam" class="ops-action-link ops-action-link--compact">${icon('shield')} Launch Exam Session</a>
+          </div>
+        </article>
+      </aside>
     `;
-  }
 
-  _renderStatCard(value, label, color) {
-    return `
-      <div class="stat-card">
-        <div class="stat-card__value" style="color:${color};">${value}</div>
-        <div class="stat-card__label">${label}</div>
-      </div>
-    `;
-  }
+    this.container.innerHTML = `
+      <div class="hud-container">
+        <main class="hud-terminal">
+          <div class="hud-terminal__inner">
+            <div class="hud-terminal__kicker">
+              ACTIVE MISSION: ${model.pathName.toUpperCase()}
+            </div>
 
-  _renderCategory(cat, catIndex, completedSet) {
-    const catDone  = cat.modules.filter(m => completedSet.has(m.route)).length;
-    const catTotal = cat.modules.length;
-    const pct      = catTotal > 0 ? Math.round((catDone / catTotal) * 100) : 0;
+            <div class="hud-terminal__status-row">
+              <span class="hud-terminal__status-pill">${model.commandStatus}</span>
+              <span class="hud-terminal__status-pill hud-terminal__status-pill--muted">${model.pathDone}/${model.pathTotal} modules cleared</span>
+              <span class="hud-terminal__status-pill hud-terminal__status-pill--muted">L${model.level.level} ${model.level.title}</span>
+            </div>
 
-    return `
-      <div class="anim-fade-in-up anim-delay-${catIndex + 1}" style="margin-bottom:3rem;">
+            <h1 class="hud-terminal__title">${model.commandHeadline.toUpperCase()}</h1>
+            <p class="hud-terminal__desc">${model.commandCopy}</p>
 
-        <!-- Category header -->
-        <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:1.25rem; flex-wrap:wrap;">
-          <div style="width:4px; height:24px; background:${cat.color}; border-radius:99px; flex-shrink:0;"></div>
-          <h2 style="font-size:1.0625rem; font-weight:700; color:var(--color-text-secondary); text-transform:uppercase; letter-spacing:0.07em; margin:0;">
-            ${cat.category}
-          </h2>
-          <div style="margin-left:auto; display:flex; align-items:center; gap:0.5rem;">
-            <span style="font-family:var(--font-mono); font-size:var(--text-xs); color:${cat.color};">${catDone}/${catTotal}</span>
-            <div style="width:48px; height:4px; background:var(--color-bg-raised); border-radius:99px; overflow:hidden;">
-              <div style="height:100%; width:${pct}%; background:${cat.color}; border-radius:99px; transition:width 0.5s ease;"></div>
+            <div class="hud-terminal__mission-grid">
+              <article class="hud-terminal__mission-card">
+                <span class="hud-terminal__mission-label">Current objective</span>
+                <strong class="hud-terminal__mission-value">${(model.missionModule || model.missionTitle).toUpperCase()}</strong>
+                <span class="hud-terminal__mission-meta">${model.resumeMeta} · ${model.pathName}</span>
+              </article>
+
+              <article class="hud-terminal__mission-card">
+                <span class="hud-terminal__mission-label">Path completion</span>
+                <div class="hud-terminal__mission-meter" role="progressbar" aria-label="Path completion" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${model.pathProgress}">
+                  <span style="width:${model.pathProgress}%"></span>
+                </div>
+                <span class="hud-terminal__mission-meta">${model.pathProgress}% clear · ${model.pathDone}/${model.pathTotal} modules online</span>
+              </article>
+            </div>
+
+            <div class="hud-terminal__actions">
+              <a href="${model.resumeRoute}" class="hud-launch-btn">
+                <span class="hud-launch-btn__label">${model.resumeLabel.toUpperCase()}</span>
+                ${icon('send', 'hud-launch-btn__icon')}
+              </a>
+
+              <a href="${model.missionHubRoute}" class="hud-support-btn">
+                ${icon('chevron', 'hud-support-btn__icon')}
+                <span>VIEW DOMAIN RUNWAY</span>
+              </a>
+            </div>
+
+            <div class="ops-brief-tags hud-terminal__tags">
+              <span class="ops-data-chip">${icon('activity')} ${model.resumeMeta}</span>
+              <span class="ops-data-chip">${icon('shield')} ${model.streak > 0 ? `${model.streak}-Day Cadence` : 'Cadence: Initializing'}</span>
+              <span class="ops-data-chip">${icon('flask')} ${model.relatedSimulation.label}</span>
             </div>
           </div>
-        </div>
+        </main>
 
-        <!-- Module cards -->
-        <div class="module-grid">
-          ${cat.modules.map(mod => {
-            const done = completedSet.has(mod.route);
-            return `
-              <a href="#${mod.route}"
-                class="module-card"
-                data-route="${mod.route}"
-                data-completed="${done}"
-                style="--card-color:${cat.color}">
-                <div class="module-card__icon">${mod.icon}</div>
-                <div class="module-card__title">${mod.title}</div>
-                <div class="module-card__desc">${mod.desc}</div>
-                ${done ? `
-                  <div class="badge badge-success" style="margin-top:0.75rem; align-self:flex-start;">✓ Completed</div>
-                ` : ''}
-              </a>
-            `;
-          }).join('')}
-        </div>
+        ${telemetryHtml}
+
+        <section class="hud-runway">
+          ${runwayHtml}
+        </section>
       </div>
     `;
+
+    this._bindEvents();
   }
 
-  // ── Live update — called when stateManager fires ───────────────
+  _renderRunway(paths) {
+    return paths.map((path, index) => {
+      const total = path.modules.length;
+      const done = path.modules.filter(mod => progressEngine.isTopicComplete(mod.id)).length;
+      const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+      const isUnlocked = progressEngine.isPathUnlocked(path, ALL_PATHS);
+      const isComplete = progressEngine.isPathComplete(path);
+      const firstPending = path.modules.find(mod => !progressEngine.isTopicComplete(mod.id));
 
-  _updateLiveRegions() {
-    const progress  = stateManager.getState('userProgress');
+      const href = isUnlocked
+        ? (firstPending ? `#/paths/${path.id}/${firstPending.id}` : `#/paths/${path.id}`)
+        : '#/paths';
+
+      return `
+        <a href="${href}" class="hud-runway-item ${isUnlocked ? '' : 'is-locked'} ${isComplete ? 'is-complete' : ''} ${pct > 0 && pct < 100 ? 'is-active' : ''}">
+          <div class="hud-runway-head">
+            <span class="hud-runway-icon" style="color: ${isUnlocked ? path.color : 'var(--color-text-muted)'}">
+              ${icon(this._pickPathIcon(path.id))}
+            </span>
+            ${isComplete ? `<span class="hud-runway-check">${icon('check')}</span>` : ''}
+          </div>
+          <div class="hud-runway-title">${path.title}</div>
+          <div class="hud-runway-progress">
+            <div class="hud-runway-fill" style="width: ${pct}%; background: ${path.color}"></div>
+          </div>
+        </a>
+      `;
+    }).join('');
+  }
+
+  _buildModel() {
+    const profile = stateManager.getState('userProfile');
+    const progress = stateManager.getState('userProgress');
+    const learning = stateManager.getState('learningState');
+
     const completed = new Set(progress.completedModules || []);
-    const doneCount = completed.size;
-    const examBest  = progress.bestExamScore || 0;
+    const level = progressEngine.getLevelForXP(profile.xp);
+    const weakAreas = progressEngine.getWeakAreas();
+    const simulations = getAllSimulations();
+    const curriculumStats = getCurriculumStats();
 
-    // Progress count + bar
-    const countEl = this.container?.querySelector('#db-progress-count');
-    const barEl   = this.container?.querySelector('#db-progress-bar');
-    if (countEl) countEl.innerHTML = `${doneCount}<span style="font-size:1rem; color:var(--color-text-muted);">/${TOTAL_MODULES}</span>`;
-    if (barEl)   barEl.style.width = `${((doneCount / TOTAL_MODULES) * 100).toFixed(1)}%`;
+    const mission = this._resolveMission(learning, completed);
+    const totalModules = ALL_PATHS.reduce((sum, path) => sum + path.modules.length, 0);
+    const pathDone = mission.path ? mission.path.modules.filter(mod => progressEngine.isTopicComplete(mod.id)).length : 0;
+    const pathTotal = mission.path ? mission.path.modules.length : 1;
+    const pathProgress = Math.round((pathDone / pathTotal) * 100);
 
-    // Mark module cards
-    this.container?.querySelectorAll('.module-card').forEach(card => {
-      const route = card.getAttribute('data-route');
-      const done  = completed.has(route);
-      card.setAttribute('data-completed', done);
-      if (done && !card.querySelector('.badge-success')) {
-        const badge = document.createElement('div');
-        badge.className = 'badge badge-success';
-        badge.style.marginTop = '0.75rem';
-        badge.style.alignSelf = 'flex-start';
-        badge.textContent = '✓ Completed';
-        card.appendChild(badge);
+    const completedLabs = simulations.filter(sim => completed.has(sim.moduleId)).length;
+    const liveSimulationCount = simulations.filter(sim => sim.implemented).length;
+    const simulationRate = curriculumStats.simulationCount > 0
+      ? Math.round((completedLabs / curriculumStats.simulationCount) * 100)
+      : 0;
+    const completedDomains = ALL_PATHS.filter(path => progressEngine.isPathComplete(path)).length;
+
+    const completionRate = totalModules > 0 ? Math.round((completed.size / totalModules) * 100) : 0;
+    const uptimeValue = Math.min(99.9, 97.1 + Math.max(0, profile.streak || 0) * 0.24).toFixed(1);
+
+    const activeNodes = 96 + completed.size * 2;
+    const achievementCount = (profile.achievements || []).length;
+    const achievementRate = Math.round((achievementCount / ACHIEVEMENTS.length) * 100);
+
+    const logs = this._buildSystemLogs({ mission, profile, weakAreas, completedLabs, completionRate });
+    const weakTarget = this._resolveWeakTarget(weakAreas);
+    const recommendedSimulations = this._selectRecommendedSimulations(mission, simulations);
+    const relatedSimulation = this._resolveRelatedSimulation(mission, recommendedSimulations, simulations);
+    const nextLevelXP = progressEngine.getNextLevelXP(profile.xp);
+    const currentLevelXP = level.xp || 0;
+    const levelSpan = Math.max(1, nextLevelXP - currentLevelXP);
+    const levelProgress = nextLevelXP > currentLevelXP
+      ? Math.min(100, Math.max(0, Math.round(((profile.xp - currentLevelXP) / levelSpan) * 100)))
+      : 100;
+    const xpToNext = Math.max(0, nextLevelXP - profile.xp);
+    const resumeLabel = this._getResumeLabel(mission);
+
+    return {
+      level,
+      curriculumStats,
+      missionRoute: mission.route,
+      missionTitle: mission.title,
+      missionModule: mission.moduleTitle,
+      missionCopy: mission.copy,
+      pathName: mission.pathName,
+      missionHubRoute: mission.path ? `#/paths/${mission.path.id}` : '#/paths',
+      missionKind: mission.kind,
+      resumeRoute: mission.route,
+      resumeLabel,
+      resumeMeta: this._getResumeMeta(mission),
+      commandHeadline: this._buildCommandHeadline(mission),
+      commandCopy: this._buildCommandCopy(mission, resumeLabel),
+      commandStatus: this._buildCommandStatus(profile, weakTarget),
+      pathProgress,
+      pathDone,
+      pathTotal,
+      activeNodes,
+      nodeTrend: `+${Math.max(2, Math.round(completedLabs / 2))}`,
+      achievementCount,
+      achievementRate,
+      completedCount: completed.size,
+      completedDomains,
+      completedLabs,
+      simulationRate,
+      liveSimulationCount,
+      completionRate,
+      uptime: `${uptimeValue}%`,
+      logs,
+      weakAreas,
+      weakTarget,
+      recommendedSimulations,
+      relatedSimulation,
+      levelProgress,
+      xpToNext,
+      streak: profile.streak || 0,
+      totalModules,
+    };
+  }
+
+  _resolveMission(learning, completed) {
+    if (learning.lastModuleId) {
+      const located = findPathForModule(learning.lastModuleId);
+      if (located) {
+        const route = this._buildLessonRoute(located.path.id, located.module.id, learning.lastPosition);
+        return {
+          kind: 'module',
+          route,
+          title: `${located.path.title}: Active Study Cycle`,
+          moduleTitle: located.module.title,
+          pathName: located.path.title,
+          path: located.path,
+          module: located.module,
+          position: learning.lastPosition || 'theory',
+          copy: `Resume your tracked progression with a focus on applied packet-flow reasoning and validation.`
+        };
       }
+    }
+
+    for (const path of ALL_PATHS) {
+      const next = path.modules.find(mod => !progressEngine.isTopicComplete(mod.id));
+      if (next) {
+        return {
+          kind: 'module',
+          route: this._buildLessonRoute(path.id, next.id, 'theory'),
+          title: `${path.title}: Mission Queue`,
+          moduleTitle: next.title,
+          pathName: path.title,
+          path,
+          module: next,
+          position: 'theory',
+          copy: `This route is the next unlocked objective in your sequence. Start with one clean run and document each decision hop.`
+        };
+      }
+
+      if (!progressEngine.isDomainFinalPassed(path.id)) {
+        return {
+          kind: 'final',
+          route: `#/paths/${path.id}`,
+          title: `${path.title}: Final Exam Ready`,
+          moduleTitle: path.finalExam?.title || 'Domain Final Exam',
+          pathName: path.title,
+          path,
+          module: null,
+          position: 'final-exam',
+          copy: 'All topic gates are satisfied. Review the domain landing page and prepare the final exam blueprint for the next implementation phase.',
+        };
+      }
+    }
+
+    const fallbackPath = ALL_PATHS[0];
+    return {
+      kind: 'review',
+      route: '#/simulations',
+      title: 'Mastery Loop: Advanced Review',
+      moduleTitle: 'Simulation Grid',
+      pathName: fallbackPath?.title || 'All Domains',
+      path: fallbackPath || null,
+      module: null,
+      position: 'simulation',
+      copy: 'All tracked modules are complete. Switch to review simulations and exam drills to lock in retention.'
+    };
+  }
+
+  _buildLessonRoute(pathId, moduleId, position = 'theory') {
+    const baseRoute = `#/paths/${pathId}/${moduleId}`;
+    if (position === 'simulation') return `${baseRoute}?tab=simulation`;
+    if (position === 'quiz') return `${baseRoute}?tab=quiz`;
+    return baseRoute;
+  }
+
+  _buildCommandHeadline(mission) {
+    if (mission.kind === 'final') return `Prepare ${mission.pathName} Final`;
+    if (mission.kind === 'review') return 'Shift Into Advanced Review';
+    return `Continue ${mission.moduleTitle}`;
+  }
+
+  _buildCommandCopy(mission, resumeLabel) {
+    if (mission.kind === 'final') {
+      return `All topic gates inside ${mission.pathName} are satisfied. Review the domain runway, tighten weak spots, and launch the final assessment when the sequence feels clean.`;
+    }
+
+    if (mission.kind === 'review') {
+      return 'Your tracked module queue is clear. Rotate into simulations, flashcards, and exam drills to keep packet flow, subnetting, and troubleshooting fresh under time pressure.';
+    }
+
+    const resumePhrase = mission.position === 'simulation'
+      ? 'the simulation checkpoint'
+      : mission.position === 'quiz'
+        ? 'the quiz checkpoint'
+        : 'the lesson flow';
+
+    return `${mission.copy} Resume from ${resumePhrase} inside ${mission.pathName}, then push the next topic gate forward.`;
+  }
+
+  _buildCommandStatus(profile, weakTarget) {
+    const streak = profile.streak || 0;
+    if (weakTarget) {
+      return streak > 0 ? `Recovery queue active • ${streak}-day cadence` : 'Recovery queue active';
+    }
+    if (streak >= 7) return `${streak}-day cadence active`;
+    if (streak > 0) return `${streak}-day learning cadence`;
+    return 'Fresh session ready';
+  }
+
+  _getResumeLabel(mission) {
+    if (mission.kind === 'final') return 'Open Domain Final';
+    if (mission.kind === 'review') return 'Open Simulation Grid';
+    if (mission.position === 'simulation') return 'Resume Simulation';
+    if (mission.position === 'quiz') return 'Resume Quiz';
+    return 'Resume Lesson';
+  }
+
+  _getResumeMeta(mission) {
+    if (mission.kind === 'final') return 'Domain final assessment';
+    if (mission.kind === 'review') return 'Advanced review cycle';
+
+    const labelMap = {
+      theory: 'Theory checkpoint',
+      simulation: 'Simulation checkpoint',
+      quiz: 'Quiz checkpoint',
+    };
+
+    return labelMap[mission.position] || 'Lesson checkpoint';
+  }
+
+  _resolveWeakTarget(weakAreas) {
+    if (!Array.isArray(weakAreas) || weakAreas.length === 0) return null;
+
+    const target = weakAreas[0];
+    const found = findPathForModule(target.moduleId);
+    if (!found) {
+      return {
+        title: target.moduleId,
+        averageScore: target.averageScore,
+        pathName: 'Quiz Review',
+        route: '#/paths',
+      };
+    }
+
+    return {
+      title: found.module.title,
+      averageScore: target.averageScore,
+      pathName: found.path.title,
+      route: `#/paths/${found.path.id}/${found.module.id}?tab=quiz`,
+    };
+  }
+
+  _selectRecommendedSimulations(mission, simulations) {
+    const ranked = [];
+
+    if (mission.module) {
+      const exactMatch = simulations.find((sim) => sim.moduleId === mission.module.id);
+      if (exactMatch) ranked.push(exactMatch);
+    }
+
+    if (mission.path?.id) {
+      simulations
+        .filter((sim) => sim.pathId === mission.path.id && !ranked.some((item) => item.id === sim.id))
+        .forEach((sim) => ranked.push(sim));
+    }
+
+    simulations.forEach((sim) => {
+      if (!ranked.some((item) => item.id === sim.id)) ranked.push(sim);
     });
 
-    // Update sidebar completion dots
-    document.querySelectorAll('.sidebar__nav-item[data-route]').forEach(link => {
-      const route = link.getAttribute('data-route');
-      link.setAttribute('data-completed', completed.has(route));
+    return ranked.slice(0, 4);
+  }
+
+  _resolveRelatedSimulation(mission, recommendedSimulations, simulations) {
+    const preferred = recommendedSimulations[0] || simulations[0] || null;
+    if (!preferred) {
+      return {
+        route: '#/simulations',
+        label: 'Simulation Grid',
+        meta: 'Browse every available drill and lab engine',
+        ctaLabel: 'Open Drill Grid',
+      };
+    }
+
+    return {
+      route: `#${preferred.launchRoute}`,
+      label: preferred.label,
+      meta: `${preferred.moduleName} • ${preferred.implemented ? 'Live simulator' : 'Guided lesson lab'}`,
+      ctaLabel: preferred.implemented ? 'Run Related Lab' : 'Open Guided Lab',
+    };
+  }
+
+  _buildSystemLogs({ mission, profile, weakAreas, completedLabs, completionRate }) {
+    const logs = [];
+
+    logs.push({
+      title: `Mission pointer synced to ${mission.moduleTitle}`,
+      meta: `${mission.pathName} • just now`
     });
+
+    logs.push({
+      title: `Simulation ledger updated: ${completedLabs} labs completed`,
+      meta: `Completion index ${completionRate}% • 4m ago`
+    });
+
+    if (weakAreas.length > 0) {
+      const target = weakAreas[0];
+      const found = findPathForModule(target.moduleId);
+      logs.push({
+        title: `Weak-signal detected in ${found ? found.module.title : target.moduleId}`,
+        meta: `Avg ${target.averageScore}% • remediation queued`
+      });
+    } else {
+      logs.push({
+        title: 'No critical weak areas detected in quiz analytics',
+        meta: 'Study health stable • maintain cadence',
+        muted: true
+      });
+    }
+
+    logs.push({
+      title: `${(profile.achievements || []).length}/${ACHIEVEMENTS.length} achievements unlocked`,
+      meta: `Current level ${progressEngine.getLevelForXP(profile.xp).title} • profile synced`
+    });
+
+    return logs;
+  }
+
+  _pickSimIcon(simId) {
+    if (simId.includes('subnet') || simId.includes('vlsm')) return 'flask';
+    if (simId.includes('route') || simId.includes('ttl')) return 'globe';
+    if (simId.includes('arp') || simId.includes('mac')) return 'network';
+    return 'cpu';
+  }
+
+  _pickPathIcon(pathId) {
+    const map = {
+      fundamentals: 'book',
+      'network-access': 'network',
+      'ip-connectivity': 'send',
+      'ip-services': 'shield',
+      'security-fundamentals': 'shield',
+      'automation-programmability': 'cpu',
+    };
+    return map[pathId] || 'cpu';
+  }
+
+  _bindEvents() {
+    const flashcardBtn = this.container.querySelector('#dash-flashcard-btn');
+    if (flashcardBtn) {
+      flashcardBtn.addEventListener('click', () => {
+        eventBus.emit('nav:route-change', { route: '/resources' });
+        sessionStorage.setItem('openFlashcards', 'true');
+      });
+    }
   }
 
   start() {}
-  step()  {}
+  step() {}
 
   reset() {
     this._render();
   }
 
   destroy() {
-    if (this._unsubscribe) this._unsubscribe();
     this.container = null;
   }
 }

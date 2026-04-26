@@ -1,0 +1,16 @@
+import { q } from './helpers.js';
+
+const dhcpBank = [
+  q('d4-4-6-q1', 'What is the main purpose of DHCP?', ['To synchronize clocks', 'To automate host IP configuration', 'To translate addresses to public IPs', 'To encrypt Telnet'], 1, 'easy', 'DHCP automates IP configuration for hosts, including addresses and other settings.'),
+  q('d4-4-6-q2', 'What is the correct DORA order?', ['Discover, Offer, Request, Acknowledge', 'Request, Offer, Discover, Acknowledge', 'Offer, Discover, Acknowledge, Request', 'Acknowledge, Discover, Offer, Request'], 0, 'easy', 'The DHCP exchange is Discover, Offer, Request, and Acknowledge.'),
+  q('d4-4-6-q3', 'Which UDP port pair is correct for DHCP?', ['67 client / 68 server', '53 client / 53 server', '68 client / 67 server', '161 client / 162 server'], 2, 'easy', 'The client commonly uses UDP 68 and the server uses UDP 67.'),
+  q('d4-4-6-q4', 'Why are initial DHCP messages often broadcast?', ['Because the client does not yet know the server or its own full IP configuration', 'Because DNS requires it', 'Because routing tables are missing', 'Because NTP depends on it'], 0, 'medium', 'A new client usually broadcasts to find a DHCP server before it has complete addressing context.'),
+  q('d4-4-6-q5', 'What is the purpose of excluded addresses in a DHCP design?', ['To reserve addresses that should not be leased dynamically', 'To create more DNS records', 'To increase NTP stratum', 'To force PAT'], 0, 'easy', 'Excluded addresses keep important addresses such as gateways or static infrastructure from being handed out dynamically.'),
+  q('d4-4-6-q6', 'What does ip helper-address do in a DHCP scenario?', ['It relays DHCP broadcasts across a router as unicast toward the server', 'It enables static NAT', 'It disables the DHCP pool', 'It changes the default gateway on the client'], 0, 'medium', 'ip helper-address relays DHCP traffic across routed boundaries when the client and server are on different subnets.'),
+  q('d4-4-6-q7', 'What other settings can DHCP provide besides the IP address?', ['Default gateway, DNS server, and lease information', 'Only the switch MAC address', 'Only the STP root bridge', 'Only the syslog severity'], 0, 'easy', 'DHCP commonly provides the gateway, DNS information, and lease timing in addition to the IP address.'),
+  q('d4-4-6-q8', 'What is a DHCP lease?', ['The period for which the client may use the assigned configuration', 'A static route to the server', 'An FTP authentication ticket', 'A routing metric'], 0, 'easy', 'The lease defines how long the assigned configuration is valid for the client.'),
+  q('d4-4-6-q9', 'Which device blocks DHCP broadcasts by default unless relay is configured?', ['A hub', 'A router', 'An access point', 'A Layer 1 repeater'], 1, 'medium', 'Routers do not forward broadcasts by default, which is why DHCP relay is needed across subnets.'),
+  q('d4-4-6-q10', 'What is the best first check if hosts on one subnet cannot obtain leases from a DHCP server on another subnet?', ['Whether DHCP relay/helper is configured on the router interface', 'Whether STP root guard is enabled', 'Whether the NTP peer is trusted', 'Whether SSH keys exist'], 0, 'medium', 'Across routed boundaries, missing or wrong relay configuration is a classic first cause of DHCP failure.'),
+];
+
+export default dhcpBank;

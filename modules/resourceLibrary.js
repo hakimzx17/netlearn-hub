@@ -3,7 +3,7 @@
  * 
  * Features:
  * - CCNA-focused content (only exam-relevant ports, protocols, commands)
- * - Flashcard/Anki mode for active recall
+ * - Flashcard/Anki mode for active recall with spaced repetition
  * - Enhanced search functionality
  * - CLI Commands section with terminal UI
  * 
@@ -12,49 +12,70 @@
 
 import { eventBus } from '../js/eventBus.js';
 import { escapeHtml } from '../utils/helperFunctions.js';
+import { flashcardEngine } from '../js/flashcardEngine.js';
+import { ALL_CCNA_DECKS, NETWORK_FUNDAMENTALS_DECK, NETWORK_ACCESS_DECK, IP_CONNECTIVITY_DECK, IP_SERVICES_DECK, SECURITY_FUNDAMENTALS_DECK, AUTOMATION_DECK, PROTOCOLS_DECK, PORTS_DECK } from '../data/ccnaFlashcards.js';
+import { renderTokenIcon } from '../utils/tokenIcons.js';
 
 const SECTIONS = [
   {
-    id: 'home', icon: '🏠', title: 'Quick Review',
+    id: 'home', icon: 'FOCUS', title: 'Quick Review',
     desc: 'CCNA exam highlights',
     content: () => _renderQuickReview(),
   },
   {
-    id: 'ports', icon: '🔌', title: 'Ports',
+    id: 'ports', icon: 'PORT', title: 'Ports',
     desc: 'Must-know port numbers',
     content: () => _renderPortsTable(),
   },
   {
-    id: 'protocols', icon: '📡', title: 'Protocols',
+    id: 'protocols', icon: 'ARP', title: 'Protocols',
     desc: 'Key protocols & layers',
     content: () => _renderProtocols(),
   },
   {
-    id: 'cli', icon: '💻', title: 'CLI Commands',
+    id: 'cli', icon: 'CLI', title: 'CLI Commands',
     desc: 'Essential Cisco commands',
-    content: () => _renderCLICommands(),
+    content: (ctx) => _renderCLICommands(ctx?._cliIndex ?? 0),
   },
   {
-    id: 'osi', icon: '📚', title: 'OSI Model',
+    id: 'osi', icon: 'LEARN', title: 'OSI Model',
     desc: '7 layers + mnemonics',
     content: () => _renderOSIRef(),
   },
   {
-    id: 'subnet', icon: '🧮', title: 'Subnetting',
+    id: 'subnet', icon: 'SUBNET', title: 'Subnetting',
     desc: 'CIDR & VLSM quick ref',
     content: () => _renderSubnetRef(),
   },
   {
-    id: 'glossary', icon: '📖', title: 'Glossary',
+    id: 'glossary', icon: 'DOCS', title: 'Glossary',
     desc: 'Searchable terms',
     content: () => _renderGlossary(),
   },
 ];
 
 const PORT_CATEGORIES = {
-  critical: { name: '🎯 CCNA Exam Must-Know', color: 'var(--color-error)', ports: ['22','23','53','80','443','67','68','161','179'] },
-  important: { name: '⚡ Important Services', color: 'var(--color-amber)', ports: ['20','21','25','110','143','389','445','3389'] },
-  networking: { name: '🌐 Networking', color: 'var(--color-cyan)', ports: ['123','520','514','123'] },
+  critical: {
+    name: 'CCNA Core',
+    desc: 'Exam-first ports you should recall instantly.',
+    icon: 'FOCUS',
+    color: 'var(--color-error)',
+    ports: ['22','23','53','67','68','80','161','179','443'],
+  },
+  important: {
+    name: 'Must Know',
+    desc: 'Common services that show up across labs and enterprise basics.',
+    icon: 'PORTS',
+    color: 'var(--color-amber)',
+    ports: ['20','21','25','110','143','389','445','587','993','995','3389'],
+  },
+  networking: {
+    name: 'Network Operations',
+    desc: 'Infrastructure control, logging, timing, and routing support ports.',
+    icon: 'NET',
+    color: 'var(--color-cyan)',
+    ports: ['69','123','162','514','520'],
+  },
 };
 
 const PORTS = [
@@ -86,40 +107,58 @@ const PORTS = [
 ];
 
 const PROTOCOLS = [
-  { name:'ARP', full:'Address Resolution Protocol', layer:'L2/L3', category:'addressing', 
-    question:'How does ARP work?', answer:'Broadcasts "Who has 192.168.1.1?" within subnet. Target replies with MAC. Entry cached for 4 hours.' },
-  { name:'ICMP', full:'Internet Control Message Protocol', layer:'L3', category:'diagnostics', 
-    question:'What is ICMP used for?', answer:'Network diagnostics: ping (echo request/reply), traceroute, error reporting (destination unreachable).' },
-  { name:'DHCP', full:'Dynamic Host Configuration', layer:'L7', category:'management', 
-    question:'Describe DHCP DORA process.', answer:'Discover (client broadcast), Offer (server), Request (client), Acknowledge (server). Uses UDP 67/68.' },
-  { name:'DNS', full:'Domain Name System', layer:'L7', category:'application', 
-    question:'What port does DNS use?', answer:'UDP 53 for queries, TCP 53 for zone transfers. Resolves hostnames to IP addresses.' },
-  { name:'TCP', full:'Transmission Control Protocol', layer:'L4', category:'transport', 
-    question:'Describe TCP 3-way handshake.', answer:'SYN → SYN-ACK → ACK. Establishes reliable connection before data transfer.' },
-  { name:'UDP', full:'User Datagram Protocol', layer:'L4', category:'transport', 
-    question:'When is UDP preferred over TCP?', answer:'When speed matters more than reliability: VoIP, video streaming, DNS, DHCP, online gaming.' },
-  { name:'OSPF', full:'Open Shortest Path First', layer:'L3', category:'routing', 
-    question:'What is OSPF administrative distance?', answer:'110. Link-state protocol. Uses Dijkstra SPF algorithm. Fast convergence. Area 0 is backbone.' },
-  { name:'BGP', full:'Border Gateway Protocol', layer:'L4', category:'routing', 
-    question:'What is BGP port and type?', answer:'TCP 179. Path-vector protocol. Used between autonomous systems (EGP). The internet routing protocol.' },
-  { name:'EIGRP', full:'Enhanced IGRP', layer:'L3', category:'routing', 
-    question:'EIGRP AD values?', answer:'90 for internal, 170 for external. Cisco proprietary. Uses DUAL algorithm for loop-free paths.' },
-  { name:'RIP', full:'Routing Information Protocol', layer:'L3', category:'routing', 
-    question:'RIP max hop count?', answer:'15 hops. 16 = unreachable. Uses UDP 520. Distance vector. Sends full table every 30s.' },
-  { name:'STP', full:'Spanning Tree Protocol', layer:'L2', category:'switching', 
-    question:'What does STP prevent?', answer:'Layer 2 loops. Blocks redundant ports. Elects root bridge. Uses BPDU. 50s convergence (listening/learning).' },
-  { name:'VLAN', full:'Virtual LAN', layer:'L2', category:'switching', 
-    question:'What is VLAN tagging?', answer:'802.1Q adds 4-byte tag to frame. Identifies VLAN ID (12 bits = 4096 VLANs). Native VLAN is untagged.' },
-  { name:'NAT', full:'Network Address Translation', layer:'L3', category:'addressing', 
-    question:'NAT types?', answer:'Static NAT (1:1), Dynamic NAT (pool), PAT/Overload (many:1 using ports). Conserves IPv4.' },
-  { name:'ACL', full:'Access Control Lists', layer:'L3', category:'security', 
-    question:'Standard vs Extended ACL?', answer:'Standard (1-99, 1300-1999): source only. Extended (100-199, 2000-2699): source, dest, port, protocol.' },
-  { name:'HSRP', full:'Hot Standby Router Protocol', layer:'L3', category:'redundancy', 
-    question:'HSRP active/standby election?', answer:'Highest priority (default 100) wins. Higher IP if tie. Hello 3s, Hold 10s. Virtual IP = gateway.' },
+  { name:'ARP', full:'Address Resolution Protocol', layer:'L2/L3', category:'addressing',
+    question:'How does ARP work?',
+    answer:'When a host needs to send to an IP, it broadcasts an ARP request ("Who has 192.168.1.1? Tell 192.168.1.10") to ffff.ffff.ffff. The target replies with its MAC via unicast. Both devices cache the mapping in their ARP table. ARP operates at Layer 2/3 and entries expire after ~4 hours.' },
+  { name:'ICMP', full:'Internet Control Message Protocol', layer:'L3', category:'diagnostics',
+    question:'What does ICMP do and what are key message types?',
+    answer:'ICMP is a Layer 3 (Network Layer) protocol for diagnostics and error reporting. Key types: Echo Request / Echo Reply (ping, connectivity test), Destination Unreachable (host/network unreachable), Time Exceeded (TTL expired, used by traceroute). No port numbers unlike TCP/UDP. Command: ping ip-address.' },
+  { name:'DHCP', full:'Dynamic Host Configuration', layer:'L7', category:'management',
+    question:'Describe the DHCP DORA process.',
+    answer:'DISCOVER: Client broadcasts to find DHCP servers. OFFER: Server replies with available IP, subnet, gateway, DNS, lease time. REQUEST: Client broadcasts selected offer. ACK: Server confirms the lease. Uses UDP 67 (server) and UDP 68 (client). Lease renewal at 50% of lease time. Server pings address before offering to detect conflicts.' },
+  { name:'DNS', full:'Domain Name System', layer:'L7', category:'application',
+    question:'How does DNS work and what are key record types?',
+    answer:'Translates hostnames to IP addresses. Uses both UDP and TCP port 53. Key record types: A (hostname→IPv4), AAAA (hostname→IPv6), CNAME (alias), MX (mail server), NS (nameserver), PTR (reverse lookup), SOA (zone admin). Client sends recursive query; DNS server performs iterative queries up the hierarchy (root → TLD → authoritative).' },
+  { name:'TCP', full:'Transmission Control Protocol', layer:'L4', category:'transport',
+    question:'Describe TCP features: handshake, reliability, flow control.',
+    answer:'Connection-oriented. 3-way handshake: SYN (client) → SYN-ACK (server) → ACK (client). Reliability via sequence and acknowledgment numbers. Flow control via sliding window (Window Size field). Error detection via Checksum. 4-way termination: FIN → ACK → FIN → ACK. Header: 20-60 bytes. Used by HTTP, HTTPS, FTP, SMTP, SSH.' },
+  { name:'UDP', full:'User Datagram Protocol', layer:'L4', category:'transport',
+    question:'What is UDP and when is it preferred?',
+    answer:'Connectionless, unreliable, no ordering. Header: 8 bytes fixed. Used when speed > reliability: VoIP, video streaming, DNS queries, DHCP, online gaming. No handshake, no flow control, no sequencing. Still uses checksum for error detection. Port numbers 0-65535.' },
+  { name:'OSPF', full:'Open Shortest Path First', layer:'L3', category:'routing',
+    question:'OSPF fundamentals: algorithm, areas, cost, election.',
+    answer:'Link-state IGP. Algorithm: Dijkstra SPF. AD: 110. Metric: Cost (reference bandwidth / interface bandwidth). Hierarchical design with areas (Area 0 = backbone). DR/BDR election on multi-access networks (highest priority/RID wins). Hello/Dead: 10s/40s. LSA types for topology info. Classless, VLSM/CIDR support.' },
+  { name:'BGP', full:'Border Gateway Protocol', layer:'L4', category:'routing',
+    question:'BGP fundamentals: type, port, AD, key concepts.',
+    answer:'Path-vector EGP. TCP port 179. AD: eBGP=20, iBGP=200. Used for internet routing between AS. Key attributes: AS-Path, Next-Hop, Local Preference, MED, Weight. iBGP full mesh required. BGP attributes guide path selection. No automatic discovery — neighbors configured manually.' },
+  { name:'EIGRP', full:'Enhanced IGRP', layer:'L3', category:'routing',
+    question:'EIGRP fundamentals: algorithm, AD, metrics, packet types.',
+    answer:'Cisco-proprietary advanced distance-vector (hybrid). Algorithm: DUAL (Diffusing Update Algorithm). AD: internal=90, external=170. Metrics: bandwidth + delay (default), load + reliability optional. Five packet types: Hello, Update, Query, Reply, ACK. Fast convergence with partial updates. Supports unequal-cost load balancing. Multi-protocol (IPX, AppleTalk, IP).' },
+  { name:'RIP', full:'Routing Information Protocol', layer:'L3', category:'routing',
+    question:'RIP fundamentals: metric, timers, versions.',
+    answer:'Distance-vector IGP. Metric: hop count (max 15 hops; 16 = unreachable). AD: 120. Timers: Update 30s, Invalid 180s, Holddown 180s, Flush 240s. RIPv1: classful, no VLSM, no auth. RIPv2: classless, VLSM, MD5 auth. Auto-summary enabled by default (disable with no auto-summary). Config: router rip, version 2, network.' },
+  { name:'STP', full:'Spanning Tree Protocol', layer:'L2', category:'switching',
+    question:'How does STP prevent loops and what are port states?',
+    answer:'IEEE 802.1D. Prevents Layer 2 loops by blocking redundant ports. Root bridge election: lowest Bridge ID (priority + MAC). Root port: lowest cost to root. Designated port: lowest cost on each segment. Port costs: 10M=100, 100M=19, 1G=4, 10G=2. States: Disabled → Blocking (20s) → Listening (15s) → Learning (15s) → Forwarding. Convergence up to 50s. PortFast skips listening/learning for access ports.' },
+  { name:'VLAN', full:'Virtual LAN', layer:'L2', category:'switching',
+    question:'What are VLANs, trunking, and inter-VLAN routing?',
+    answer:'VLANs create separate broadcast domains at Layer 2 (one subnet per VLAN). VLAN range: 1-4094 (0 and 4095 reserved). Default VLAN 1 cannot be deleted. 802.1Q trunk adds 4-byte tag with 12-bit VLAN ID (4096 values). Native VLAN = untagged (default VLAN 1). Inter-VLAN routing: Router-on-a-Stick (subinterfaces + dot1Q) or Layer 3 switch (SVIs). Config: switchport mode access/trunk, switchport access vlan id.' },
+  { name:'NAT', full:'Network Address Translation', layer:'L3', category:'addressing',
+    question:'NAT types and RFC 1918 private address ranges.',
+    answer:'Translates private→public IPs. Static NAT: 1:1 permanent mapping. Dynamic NAT: 1:1 from pool (limited by pool size). PAT/Overload: many:1 using source ports (most common). RFC 1918 private: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16. Inside local=internal real IP. Inside global=translated public IP. Config: ip nat inside/outside on interfaces.' },
+  { name:'ACL', full:'Access Control Lists', layer:'L3', category:'security',
+    question:'Standard vs Extended ACLs: ranges, matching, placement.',
+    answer:'Standard (1-99, 1300-1999): match source IP only. Extended (100-199, 2000-2699): match source, destination IP, protocol, port. Sequential processing (first match wins). Ends with implicit deny all. Placement: Standard ACLs close to destination; Extended ACLs close to source. Wildcard mask = 255.255.255.255 - subnet mask. any = 0.0.0.0 255.255.255.255. host = single host.' },
+  { name:'HSRP', full:'Hot Standby Router Protocol', layer:'L3', category:'redundancy',
+    question:'HSRP operation: election, states, timers, virtual MAC.',
+    answer:'Cisco-proprietary FHRP. Provides redundant default gateway. Virtual MAC: 0000.0c07.acXX (XX=group). Priority: 0-255 (default 100, higher wins). States: Initial → Learn → Listen → Standby → Active. Timers: Hello 3s, Hold 10s. Preempt allows higher-priority router to take over. Only active router responds to ARP for VIP. Standby router monitors active via hello messages.' },
+  { name:'VRRP', full:'Virtual Router Redundancy Protocol', layer:'L3', category:'redundancy',
+    question:'VRRP vs HSRP: differences in standard, MAC, multicast.',
+    answer:'Standards-based FHRP (RFC 2338, IETF). Similar operation to HSRP but open standard. Virtual MAC: 0000.5e00.01XX (XX=group). Priority: 0-254 (default 100, higher wins). Master election: highest priority, then highest IP. Uses IP protocol 112 (HSRP uses UDP 2029). Supports preemption. Can load balance using multiple VIPs with different master routers.' },
 ];
 
   const CLI_COMMANDS = [
-  { category: '🔐 Basic Security', commands: [
+  { category: 'Basic Security', icon: 'LOCK', prompt: 'R1(config)#', mode: 'Security config', summary: 'Privilege, password, and remote-access hardening', commands: [
     { cmd:'enable', desc:'Enter privileged EXEC mode' },
     { cmd:'configure terminal', desc:'Enter global configuration mode' },
     { cmd:'enable secret <password>', desc:'Set encrypted enable password' },
@@ -128,7 +167,7 @@ const PROTOCOLS = [
     { cmd:'login', desc:'Require password for console access' },
     { cmd:'transport input ssh', desc:'Allow only SSH on VTY lines' },
   ]},
-  { category: '🌐 Interface Configuration', commands: [
+  { category: 'Interface Configuration', icon: 'NET', prompt: 'R1(config-if)#', mode: 'Interface mode', summary: 'Addressing, state, and physical interface tuning', commands: [
     { cmd:'interface <type><number>', desc:'Enter interface config mode' },
     { cmd:'ip address <ip> <mask>', desc:'Assign IP and subnet mask' },
     { cmd:'no shutdown', desc:'Enable the interface' },
@@ -143,7 +182,7 @@ const PROTOCOLS = [
     { cmd:'speed <10|100|1000|auto>', desc:'Set interface speed' },
     { cmd:'duplex <full|half|auto>', desc:'Set duplex mode' },
   ]},
-  { category: '🔄 Routing', commands: [
+  { category: 'Routing', icon: 'CYCLE', prompt: 'R1(config-router)#', mode: 'Routing mode', summary: 'Static and dynamic route control', commands: [
     { cmd:'ip routing', desc:'Enable IP routing on switch' },
     { cmd:'router ospf <process-id>', desc:'Enable OSPF routing' },
     { cmd:'network <wildcard> area <id>', desc:'Add network to OSPF' },
@@ -155,7 +194,7 @@ const PROTOCOLS = [
     { cmd:'ip default-gateway <ip>', desc:'Set default gateway for L3 device' },
     { cmd:'default-information originate', desc:'Inject default route into OSPF' },
   ]},
-  { category: '🏷️ VLAN Configuration', commands: [
+  { category: 'VLAN Configuration', icon: 'SW', prompt: 'SW1(config-vlan)#', mode: 'VLAN mode', summary: 'VLAN creation and access-port membership', commands: [
     { cmd:'vlan <id>', desc:'Create VLAN' },
     { cmd:'name <vlan-name>', desc:'Name the VLAN' },
     { cmd:'no vlan <id>', desc:'Delete VLAN' },
@@ -164,7 +203,7 @@ const PROTOCOLS = [
     { cmd:'show vlan brief', desc:'Display VLAN information' },
     { cmd:'show vlan', desc:'Show VLAN database' },
   ]},
-  { category: '🔗 Trunking', commands: [
+  { category: 'L2 Trunking', icon: 'L2', prompt: 'SW1(config-if)#', mode: 'Trunk mode', summary: '802.1Q trunks, native VLAN, and allowed lists', commands: [
     { cmd:'switchport mode trunk', desc:'Set port as trunk port' },
     { cmd:'switchport mode dynamic auto', desc:'Set to negotiate trunk' },
     { cmd:'switchport mode dynamic desirable', desc:'Set to actively negotiate' },
@@ -175,7 +214,7 @@ const PROTOCOLS = [
     { cmd:'show interface trunk', desc:'Display trunk port status' },
     { cmd:'show interface <if> switchport', desc:'Show switchport info' },
   ]},
-  { category: '🔒 STP & EtherChannel', commands: [
+  { category: 'STP & EtherChannel', icon: 'FOCUS', prompt: 'SW1(config)#', mode: 'L2 control mode', summary: 'Loop prevention and bundle formation', commands: [
     { cmd:'spanning-tree mode pvst', desc:'Enable Per-VLAN STP' },
     { cmd:'spanning-tree mode rapid-pvst', desc:'Enable rapid PVST' },
     { cmd:'spanning-tree vlan <id> root primary', desc:'Make switch root bridge for VLAN' },
@@ -189,7 +228,7 @@ const PROTOCOLS = [
     { cmd:'channel-group <num> mode on', desc:'Create static EtherChannel' },
     { cmd:'port-channel load-balance', desc:'Set load balancing method' },
   ]},
-  { category: '📊 Management & Troubleshooting', commands: [
+  { category: 'Management & Troubleshooting', icon: 'LOG', prompt: 'R1#', mode: 'Exec mode', summary: 'Verification, visibility, and live diagnostics', commands: [
     { cmd:'show ip interface brief', desc:'Show IP interface status summary' },
     { cmd:'show running-config', desc:'Display current configuration' },
     { cmd:'show startup-config', desc:'Show saved configuration' },
@@ -203,7 +242,7 @@ const PROTOCOLS = [
     { cmd:'copy running-config startup-config', desc:'Save configuration to NVRAM' },
     { cmd:'write memory', desc:'Save configuration' },
   ]},
-  { category: '📜 NAT & ACL', commands: [
+  { category: 'NAT & ACL', icon: 'CONFIG', prompt: 'R1(config)#', mode: 'Policy mode', summary: 'Translation rules and traffic filtering', commands: [
     { cmd:'ip nat pool <name> <start> <end> netmask', desc:'Define NAT address pool' },
     { cmd:'ip nat inside source list <acl> pool <name>', desc:'Configure dynamic NAT' },
     { cmd:'ip nat inside source list <acl> overload', desc:'Configure PAT (NAT overload)' },
@@ -242,22 +281,43 @@ const CIDR_TABLE = [
   ['/32','1','Single host','11111111.11111111.11111111.11111111'],
 ];
 
+const GLOSSARY_GROUPS = {
+  core: {
+    name: 'Core Networking',
+    desc: 'Fundamental language for scope, forwarding, and basic device behavior.',
+    icon: 'FOCUS',
+    color: 'var(--color-cyan)',
+  },
+  routing: {
+    name: 'Addressing & Routing',
+    desc: 'Subnetting, routing trust, and packet-lifetime concepts used across CCNA paths.',
+    icon: 'CYCLE',
+    color: 'var(--color-amber)',
+  },
+  operations: {
+    name: 'Switching & Services',
+    desc: 'Switch tables, control messages, and support workflows that appear in labs.',
+    icon: 'SW',
+    color: 'var(--color-green)',
+  },
+};
+
 const GLOSSARY_TERMS = [
-  ['Broadcast Domain', 'All devices receiving Layer 2 broadcasts. Routers separate broadcast domains.'],
-  ['Collision Domain', 'Area where frame collisions can occur. Switches segment collision domains.'],
-  ['Default Gateway', 'Router IP address for destinations outside local subnet.'],
-  ['Administrative Distance', 'Trust level of route (0-255). Lower = more trustworthy.'],
-  ['ARP', 'Maps IP to MAC. Broadcast request, unicast reply. Cache = 4 hours.'],
-  ['MAC Address', '48-bit hardware address. OUI + NIC.'],
-  ['MTU', 'Maximum Transmission Unit. Default 1500 bytes for Ethernet.'],
-  ['VLSM', 'Variable Length Subnet Masking. Different prefix lengths per subnet.'],
-  ['Wildcard Mask', 'Inverse of subnet mask. 0=match, 1=ignore.'],
-  ['TTL', 'Time To Live. Prevents routing loops. Decremented each hop.'],
-  ['CAM Table', 'Switch table storing MAC addresses and ports.'],
-  ['VTP', 'VLAN Trunking Protocol. Cisco. Modes: Server, Client, Transparent.'],
-  ['BPDU', 'Bridge Protocol Data Unit. STP messages.'],
-  ['DORA', 'DHCP: Discover, Offer, Request, Acknowledge.'],
-  ['LSA', 'Link State Advertisement. OSPF routing information.'],
+  { term: 'Broadcast Domain', group: 'core', def: 'All devices receiving Layer 2 broadcasts. Routers separate broadcast domains.' },
+  { term: 'Collision Domain', group: 'core', def: 'Area where frame collisions can occur. Switches segment collision domains.' },
+  { term: 'Default Gateway', group: 'core', def: 'Router IP address for destinations outside local subnet.' },
+  { term: 'MAC Address', group: 'core', def: '48-bit hardware address. OUI + NIC.' },
+  { term: 'MTU', group: 'core', def: 'Maximum Transmission Unit. Default 1500 bytes for Ethernet.' },
+  { term: 'Administrative Distance', group: 'routing', def: 'Trust level of route (0-255). Lower = more trustworthy.' },
+  { term: 'ARP', group: 'routing', def: 'Maps IP to MAC. Broadcast request, unicast reply. Cache = 4 hours.' },
+  { term: 'VLSM', group: 'routing', def: 'Variable Length Subnet Masking. Different prefix lengths per subnet.' },
+  { term: 'Wildcard Mask', group: 'routing', def: 'Inverse of subnet mask. 0 = match, 1 = ignore.' },
+  { term: 'TTL', group: 'routing', def: 'Time To Live. Prevents routing loops. Decremented each hop.' },
+  { term: 'LSA', group: 'routing', def: 'Link State Advertisement. OSPF routing information.' },
+  { term: 'CAM Table', group: 'operations', def: 'Switch table storing MAC addresses and ports.' },
+  { term: 'VTP', group: 'operations', def: 'VLAN Trunking Protocol. Cisco. Modes: Server, Client, Transparent.' },
+  { term: 'BPDU', group: 'operations', def: 'Bridge Protocol Data Unit. STP messages.' },
+  { term: 'DORA', group: 'operations', def: 'DHCP: Discover, Offer, Request, Acknowledge.' },
 ];
 
 class ResourceLibrary {
@@ -265,104 +325,120 @@ class ResourceLibrary {
     this.container = null;
     this._activeSection = 'home';
     this._flashcardMode = false;
-    this._flashcardIndex = 0;
-    this._flashcardType = 'protocols';
-    this._flashcardFlipped = false;
+    this._flashcardView = 'decks'; // 'decks' | 'study' | 'stats' | 'edit'
+    this._currentDeckId = null;
+    this._currentSession = null;
+    this._isFlipped = false;
+    this._touchStartX = 0;
+    this._touchStartY = 0;
     this._searchTerm = '';
     this._learnedCards = new Set();
     this._cliIndex = 0;
     this._cliInitTimer = null;
     this._searchDebounce = null;
+    this._flashcardNotice = null;
+    
+    // Initialize CCNA decks on first load
+    this._initializeCCNADecks();
+  }
+  
+  /**
+   * Initialize CCNA flashcard decks if they don't exist
+   */
+  _initializeCCNADecks() {
+    const existingDecks = flashcardEngine.getAllDecks();
+    const existingIds = existingDecks.map(d => d.id);
+    
+    // Import CCNA decks if not already present
+    ALL_CCNA_DECKS.forEach(ccnaDeck => {
+      if (!existingIds.includes(ccnaDeck.id)) {
+        const newDeck = flashcardEngine.createDeck({
+          id: ccnaDeck.id,
+          name: ccnaDeck.name,
+          description: ccnaDeck.description,
+          category: ccnaDeck.category,
+          tags: ccnaDeck.tags
+        });
+        
+        // Add all cards
+        ccnaDeck.cards.forEach(card => {
+          flashcardEngine.createCard(newDeck.id, card);
+        });
+      }
+    });
   }
 
   init(containerEl) {
     this.container = containerEl;
     this._render();
+    
+    // Auto-open flashcards when launched from dashboard CTA or /flashcards route.
+    const openFromDashboard = sessionStorage.getItem('openFlashcards') === 'true';
+    const openFromRoute = window.location.hash === '#/flashcards';
+    if (openFromDashboard || openFromRoute) {
+      if (openFromDashboard) sessionStorage.removeItem('openFlashcards');
+      // Small delay to ensure DOM is ready
+      setTimeout(() => {
+        if (!this._flashcardMode) this._toggleFlashcardPanel();
+      }, 100);
+    }
   }
 
   _render() {
     const active = SECTIONS.find(s => s.id === this._activeSection);
 
     this.container.innerHTML = `
-      <div class="module-header" style="margin-bottom: 2rem;">
-        <div class="module-header__breadcrumb">
-          <a href="#/">Home</a> › <span>CCNA Resources</span>
+      <div class="reslib-shell">
+        <div class="module-header reslib-shell__header">
+          <div class="module-header__breadcrumb">
+            <a href="#/">Home</a> › <span>CCNA Resources</span>
+          </div>
+          <h1 class="module-header__title">
+            ${renderTokenIcon('DOCS', 'module-header__title-icon')}CCNA Study Resources
+          </h1>
+          <p class="module-header__description">
+            Essential references for the CCNA 200-301 exam. Use <strong>Flashcard Mode</strong> for active recall practice.
+          </p>
         </div>
-        <h1 class="module-header__title" style="font-size: var(--text-3xl);">
-          📖 CCNA Study Resources
-        </h1>
-        <p class="module-header__description" style="font-size: var(--text-base); max-width: 700px;">
-          Essential references for the CCNA 200-301 exam. Use <strong>Flashcard Mode</strong> for active recall practice.
-        </p>
-      </div>
 
-      <div style="margin-bottom: 2rem;">
-        <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center;">
+        <div class="reslib-toolbar">
           <label class="sr-only" for="global-search">Search resources</label>
-          <input 
-            type="text" 
-            id="global-search" 
-            placeholder="🔍 Search ports, protocols, commands..." 
-            style="
-              padding: 0.75rem 1rem;
-              background: var(--color-bg-dark);
-              border: 2px solid var(--color-border);
-              border-radius: var(--radius-md);
-              color: var(--color-text-primary);
-              font-size: var(--text-sm);
-              width: 320px;
-              transition: border-color 0.2s;
-            "
-            onfocus="this.style.borderColor='var(--color-cyan)';"
-            onblur="this.style.borderColor='var(--color-border)';"
-          >
-          <button id="flashcard-toggle" style="
-            padding: 0.75rem 1.25rem;
-            background: var(--color-amber);
-            border: none;
-            border-radius: var(--radius-md);
-            color: var(--color-bg-deepest);
-            font-weight: 700;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-          ">
-            🎴 Flashcard Mode
+          <div class="reslib-search-wrap">
+            <span class="reslib-search-icon">${renderTokenIcon('FOCUS', 'learning-token-icon')}</span>
+            <input
+              type="text"
+              id="global-search"
+              class="reslib-search-input"
+              placeholder="Search ports, protocols, commands..."
+              autocomplete="off"
+            >
+          </div>
+          <button id="flashcard-toggle" class="reslib-flashcard-btn">
+            ${renderTokenIcon('LEARN', 'learning-token-icon')}Flashcard Mode
           </button>
         </div>
-        <div id="search-results" role="status" aria-live="polite" aria-atomic="true" style="display:none; margin-top: 1rem;"></div>
-      </div>
 
-      <div style="margin-bottom: 2.5rem;">
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.75rem;">
+        <div id="search-results" class="reslib-search-results" role="status" aria-live="polite" aria-atomic="true" style="display:none;"></div>
+
+        <div class="reslib-section-grid">
           ${SECTIONS.map(s => `
             <button
-              class="lib-section-btn card-hover ${s.id === this._activeSection ? 'is-active' : ''}"
+              type="button"
+              class="lib-section-btn reslib-section-btn ${s.id === this._activeSection ? 'is-active' : ''}"
               data-section="${s.id}"
-              style="
-                padding: 1rem;
-                text-align: center;
-                border: 2px solid ${s.id === this._activeSection ? 'var(--color-cyan)' : 'var(--color-border)'};
-                background: ${s.id === this._activeSection ? 'var(--color-cyan-glow)' : 'var(--color-bg-panel)'};
-                border-radius: var(--radius-md);
-                cursor: pointer;
-                transition: all 0.2s;
-              "
             >
-              <div style="font-size: 1.5rem; margin-bottom: 0.35rem;">${s.icon}</div>
-              <div style="font-weight: 700; color: var(--color-text-primary); font-size: var(--text-sm);">
-                ${s.title}
-              </div>
+              <span class="reslib-section-btn__icon">${renderTokenIcon(s.icon, 'learning-token-icon')}</span>
+              <span class="reslib-section-btn__title">${s.title}</span>
+              <span class="reslib-section-btn__desc">${s.desc}</span>
             </button>
           `).join('')}
         </div>
-      </div>
 
-      <div id="flashcard-panel" style="display: none; margin-bottom: 2rem;"></div>
+        <div id="flashcard-panel" class="ops-flash__panel-host hidden" aria-hidden="true"></div>
 
-      <div id="lib-content" class="anim-fade-in" style="min-height: 300px;">
-        ${active ? active.content() : ''}
+        <div id="lib-content" class="reslib-content anim-fade-in">
+          ${active ? active.content(this) : ''}
+        </div>
       </div>
     `;
 
@@ -372,25 +448,7 @@ class ResourceLibrary {
   _bindEvents() {
     this.container.querySelectorAll('.lib-section-btn').forEach(btn => {
       btn.addEventListener('click', () => {
-        this._activeSection = btn.getAttribute('data-section');
-        this._unbindKeyboardNav();
-        this.container.querySelectorAll('.lib-section-btn').forEach(b => {
-          const isActive = b.getAttribute('data-section') === this._activeSection;
-          b.style.borderColor = isActive ? 'var(--color-cyan)' : 'var(--color-border)';
-          b.style.background = isActive ? 'var(--color-cyan-glow)' : 'var(--color-bg-panel)';
-        });
-        const section = SECTIONS.find(s => s.id === this._activeSection);
-        const content = this.container.querySelector('#lib-content');
-        const flashcardPanel = this.container.querySelector('#flashcard-panel');
-        if (content && section) {
-          content.innerHTML = section.content();
-          content.className = 'anim-fade-in';
-          flashcardPanel.style.display = 'none';
-          
-          if (this._activeSection === 'cli') {
-            this._scheduleCliInit();
-          }
-        }
+        this._activateSection(btn.getAttribute('data-section'), { scrollIntoView: true });
       });
     });
 
@@ -407,6 +465,80 @@ class ResourceLibrary {
     flashcardBtn?.addEventListener('click', () => this._toggleFlashcardPanel());
 
     if (this._activeSection === 'cli') this._scheduleCliInit();
+    if (this._activeSection === 'protocols') this._bindProtocolInspectCards();
+  }
+
+  _activateSection(sectionId, { scrollIntoView = false } = {}) {
+    this._activeSection = sectionId;
+    this._unbindKeyboardNav();
+
+    this.container.querySelectorAll('.lib-section-btn').forEach(btn => {
+      const isActive = btn.getAttribute('data-section') === this._activeSection;
+      btn.classList.toggle('is-active', isActive);
+    });
+
+    const section = SECTIONS.find(s => s.id === this._activeSection);
+    const content = this.container.querySelector('#lib-content');
+    const flashcardPanel = this.container.querySelector('#flashcard-panel');
+    if (!content || !section) return;
+
+    content.innerHTML = section.content(this);
+    content.className = 'anim-fade-in';
+    if (flashcardPanel) {
+      flashcardPanel.classList.add('hidden');
+      flashcardPanel.setAttribute('aria-hidden', 'true');
+    }
+
+    if (this._activeSection === 'cli') {
+      this._scheduleCliInit();
+    }
+    if (this._activeSection === 'protocols') {
+      this._bindProtocolInspectCards();
+    }
+
+    if (scrollIntoView) {
+      requestAnimationFrame(() => {
+        content.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    }
+  }
+
+  _bindProtocolInspectCards() {
+    const cards = this.container?.querySelectorAll('.reslib-protocol-entry');
+    if (!cards || cards.length === 0) return;
+
+    cards.forEach((card) => {
+      card.addEventListener('click', () => this._toggleProtocolInspectCard(card));
+      card.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          this._toggleProtocolInspectCard(card);
+        }
+      });
+    });
+  }
+
+  _toggleProtocolInspectCard(card) {
+    const shouldExpand = !card.classList.contains('is-inspected');
+    this.container?.querySelectorAll('.reslib-protocol-entry.is-inspected').forEach((entry) => {
+      entry.classList.remove('is-inspected');
+      entry.setAttribute('aria-expanded', 'false');
+      const hint = entry.querySelector('.reslib-protocol-entry__inspect');
+      if (hint) hint.textContent = 'Click to inspect details';
+    });
+
+    if (shouldExpand) {
+      card.classList.add('is-inspected');
+      card.setAttribute('aria-expanded', 'true');
+    } else {
+      card.classList.remove('is-inspected');
+      card.setAttribute('aria-expanded', 'false');
+    }
+
+    const inspectHint = card.querySelector('.reslib-protocol-entry__inspect');
+    if (inspectHint) {
+      inspectHint.textContent = shouldExpand ? 'Click to hide details' : 'Click to inspect details';
+    }
   }
 
   _scheduleCliInit() {
@@ -424,7 +556,8 @@ class ResourceLibrary {
   _initCLI() {
     const cliContainer = this.container.querySelector('#cli-commands');
     if (!cliContainer) return;
-    this._renderCLIIndex(0);
+    const currentIndex = Number.isInteger(this._cliIndex) ? this._cliIndex : 0;
+    this._renderCLIIndex(currentIndex);
     this._bindCLIControls();
   }
 
@@ -465,38 +598,39 @@ class ResourceLibrary {
           this._cliIndex = (this._cliIndex + 1) % CLI_COMMANDS.length;
           this._renderCLIIndex(this._cliIndex);
         }
-      } else if (mode === 'flashcards') {
-        const flashcardData = this._getFlashcardData(this._flashcardType);
-        const cards = flashcardData.cards;
-        const flashcardInner = this.container.querySelector('#flashcard-inner');
+      } else if (mode === 'flashcards' && this._flashcardMode) {
+        const modal = document.getElementById('fc-global-modal');
+        if (!modal) return;
         
-        if (e.key === ' ' || e.key === 'Enter') {
-          e.preventDefault();
-          this._flashcardFlipped = !this._flashcardFlipped;
-          if (flashcardInner) {
-            flashcardInner.querySelector('.front').style.display = this._flashcardFlipped ? 'none' : 'block';
-            flashcardInner.querySelector('.back').style.display = this._flashcardFlipped ? 'block' : 'none';
+        // Check if we're in study mode (has a current session)
+        if (this._currentSession) {
+          if (e.key === ' ' || e.key === 'Enter') {
+            e.preventDefault();
+            this._flipCardInModal(modal);
+          } else if (e.key === 'ArrowLeft') {
+            this._previousCardInModal(modal);
+          } else if (e.key === 'ArrowRight') {
+            if (this._isFlipped) {
+              this._rateCardInModal(2, modal);
+            } else {
+              this._flipCardInModal(modal);
+            }
+          } else if (e.key === '1') {
+            if (this._isFlipped) this._rateCardInModal(0, modal);
+          } else if (e.key === '2') {
+            if (this._isFlipped) this._rateCardInModal(1, modal);
+          } else if (e.key === '3') {
+            if (this._isFlipped) this._rateCardInModal(2, modal);
+          } else if (e.key === '4') {
+            if (this._isFlipped) this._rateCardInModal(3, modal);
+          } else if (e.key === 'Escape') {
+            this._closeFlashcardMode();
           }
-        } else if (e.key === 'ArrowLeft') {
-          this._flashcardIndex = Math.max(0, this._flashcardIndex - 1);
-          this._flashcardFlipped = false;
-          this._showFlashcard(this._flashcardType);
-        } else if (e.key === 'ArrowRight') {
-          this._flashcardIndex = Math.min(cards.length - 1, this._flashcardIndex + 1);
-          this._flashcardFlipped = false;
-          this._showFlashcard(this._flashcardType);
-        } else if (e.key === '1') {
-          this._flashcardIndex = 0;
-          this._showFlashcard('protocols');
-        } else if (e.key === '2') {
-          this._flashcardIndex = 0;
-          this._showFlashcard('ports');
-        } else if (e.key === '3') {
-          this._flashcardIndex = 0;
-          this._showFlashcard('osi');
-        } else if (e.key === '4') {
-          this._flashcardIndex = 0;
-          this._showFlashcard('cli');
+        } else {
+          // In deck selection mode
+          if (e.key === 'Escape') {
+            this._closeFlashcardMode();
+          }
         }
       }
     };
@@ -515,29 +649,36 @@ class ResourceLibrary {
   _renderCLIIndex(index) {
     const container = this.container.querySelector('#cli-commands');
     const nameEl = this.container.querySelector('#cli-category-name');
+    const summaryEl = this.container.querySelector('#cli-category-summary');
+    const contextEl = this.container.querySelector('#cli-shell-context');
     const dots = this.container.querySelectorAll('.cli-dot');
 
     if (!container || !nameEl) return;
 
     const cat = CLI_COMMANDS[index];
-    nameEl.textContent = cat.category;
+    nameEl.innerHTML = `${renderTokenIcon(cat.icon || 'CLI', 'reslib-cli-category-icon')}${escapeHtml(cat.category)}`;
+    if (summaryEl) summaryEl.textContent = cat.summary || 'Cisco IOS command references';
+    if (contextEl) contextEl.textContent = `${cat.mode || 'CLI mode'} • ${cat.prompt || 'R1#'}`;
 
     container.innerHTML = `
-      <div style="display: grid; grid-template-columns: 30px 280px 1fr; gap: 0.5rem; padding: 0.5rem 1rem; border-bottom: 1px solid #444; font-size: var(--text-xs); color: #666; text-transform: uppercase;">
-        <span></span>
+      <div class="reslib-cli-table-head">
+        <span>Prompt</span>
         <span>Command</span>
-        <span>Description</span>
+        <span>Purpose</span>
       </div>
-    ` + cat.commands.map(cmd => `
-      <div style="display: grid; grid-template-columns: 30px 280px 1fr; gap: 0.5rem; padding: 0.6rem 1rem; border-bottom: 1px solid #333; align-items: center;">
-        <span style="color: #00ff88; text-align: center;">●</span>
-        <span style="color: #8be9fd; font-family: var(--font-mono); font-size: var(--text-sm); font-weight: 600;">${cmd.cmd}</span>
-        <span style="color: #aaa; font-size: var(--text-xs);">${cmd.desc}</span>
+    ` + cat.commands.map((cmd, commandIndex) => `
+      <div class="reslib-cli-row">
+        <span class="reslib-cli-row__prompt">${escapeHtml(cat.prompt || 'R1#')}</span>
+        <span class="reslib-cli-row__command">
+          <span class="reslib-cli-row__index">${String(commandIndex + 1).padStart(2, '0')}</span>
+          <span class="reslib-cli-row__cmd">${escapeHtml(cmd.cmd)}</span>
+        </span>
+        <span class="reslib-cli-row__desc">${escapeHtml(cmd.desc)}</span>
       </div>
     `).join('');
 
     dots.forEach((dot, i) => {
-      dot.style.background = i === index ? '#00ff88' : '#444';
+      dot.classList.toggle('is-active', i === index);
     });
   }
 
@@ -574,23 +715,23 @@ class ResourceLibrary {
       });
     });
 
-    GLOSSARY_TERMS.forEach(([term2, def]) => {
-      if (term2.toLowerCase().includes(term)) {
-        results.push({ type:'Term', text:`${term2}: ${def}` });
+    GLOSSARY_TERMS.forEach(({ term: term2, def, group }) => {
+      if (term2.toLowerCase().includes(term) || def.toLowerCase().includes(term)) {
+        results.push({ type:'Glossary', text:`${term2}: ${def}`, meta: GLOSSARY_GROUPS[group]?.name || '' });
       }
     });
 
     if (results.length === 0) {
-      resultsDiv.innerHTML = `<div style="padding: 1rem; color: var(--color-text-muted);">No results found for "${escapeHtml(rawTerm.trim())}"</div>`;
+      resultsDiv.innerHTML = `<div class="reslib-search-card reslib-search-empty">No results found for "${escapeHtml(rawTerm.trim())}"</div>`;
     } else {
       resultsDiv.innerHTML = `
-        <div style="background: var(--color-bg-panel); border-radius: var(--radius-md); padding: 1rem;">
-          <div style="font-size: var(--text-xs); color: var(--color-text-muted); margin-bottom: 0.75rem;">${results.length} results:</div>
-          <div style="display: flex; flex-direction: column; gap: 0.5rem; max-height: 300px; overflow-y: auto;">
+        <div class="reslib-search-card">
+          <div class="reslib-search-meta">${results.length} result${results.length > 1 ? 's' : ''}</div>
+          <div class="reslib-search-list">
             ${results.slice(0,20).map(r => `
-              <div style="padding: 0.5rem 0.75rem; background: var(--color-bg-dark); border-radius: var(--radius-sm); font-size: var(--text-sm);">
-                <span style="color: var(--color-cyan); font-weight: 700; font-size: var(--text-xs);">${r.type}</span>
-                <span style="color: var(--color-text-primary); margin-left: 0.5rem;">${escapeHtml(r.text)}</span>
+              <div class="reslib-search-item">
+                <span class="reslib-search-tag">${r.type}</span>
+                <span class="reslib-search-text">${escapeHtml(r.text)}${r.meta ? ` [${escapeHtml(r.meta)}]` : ''}</span>
               </div>
             `).join('')}
           </div>
@@ -600,210 +741,966 @@ class ResourceLibrary {
     resultsDiv.style.display = 'block';
   }
 
+  // ═══════════════════════════════════════════
+  // NEW FLASHCARD MODE METHODS
+  // ═══════════════════════════════════════════
+
   _toggleFlashcardPanel() {
-    const panel = this.container.querySelector('#flashcard-panel');
-    const content = this.container.querySelector('#lib-content');
-    
-    if (panel.style.display === 'none') {
-      panel.style.display = 'block';
-      content.style.display = 'none';
-      this._showFlashcard('protocols');
-      this._bindKeyboardNav('flashcards');
+    if (this._flashcardMode) {
+      this._closeFlashcardMode();
     } else {
-      panel.style.display = 'none';
-      content.style.display = 'block';
-      this._unbindKeyboardNav();
+      this._flashcardMode = true;
+      this._flashcardView = 'decks';
+      this._showFlashcardModal();
     }
   }
 
-  _getFlashcardData(type) {
-    const data = {
-      protocols: {
-        title: '🎴 Protocol Flashcards',
-        cards: PROTOCOLS.map(p => ({
-          front: p.name,
-          frontSub: p.full,
-          layer: p.layer,
-          back: `${p.question}\n\n${p.answer}`
-        }))
-      },
-      ports: {
-        title: '🎴 Port Flashcards',
-        cards: PORTS.map(([port, proto, service]) => ({
-          front: `Port ${port}`,
-          frontSub: proto,
-          layer: service,
-          back: `Service: ${service}\n\nProtocol: ${proto}\n\nMemorize this port for the CCNA exam!`
-        }))
-      },
-      osi: {
-        title: '🎴 OSI Layer Flashcards',
-        cards: OSI_LAYERS.map(l => ({
-          front: `Layer ${l.n}`,
-          frontSub: l.name,
-          layer: l.pdu,
-          back: `PDU: ${l.pdu}\n\nProtocols: ${l.protocols}\n\nMnemonic (Top→Bottom): All People Seem To Need Data Processing\nMnemonic (Bottom→Top): Please Do Not Throw Sausage Pizza Away`
-        }))
-      },
-      cli: {
-        title: '🎴 CLI Command Flashcards',
-        cards: CLI_COMMANDS.flatMap(cat => 
-          cat.commands.map(cmd => ({
-            front: cmd.cmd,
-            frontSub: cat.category.replace('🔐 ', '').replace('🌐 ', '').replace('🔄 ', '').replace('🏷️ ', '').replace('🔒 ', '').replace('📊 ', '').replace('📜 ', ''),
-            layer: 'IOS',
-            back: `Description: ${cmd.desc}\n\nCategory: ${cat.category}`
-          }))
-        )
-      }
-    };
-    return data[type] || data.protocols;
+  _closeFlashcardMode() {
+    // End session if active
+    if (this._currentSession) {
+      flashcardEngine.endSession();
+      this._currentSession = null;
+    }
+    
+    // Remove modal overlay
+    const existingModal = document.getElementById('fc-global-modal');
+    if (existingModal) {
+      existingModal.remove();
+    }
+    
+    this._flashcardMode = false;
+    this._flashcardNotice = null;
+    this._unbindKeyboardNav();
   }
 
-  _showFlashcard(type) {
-    this._flashcardType = type;
-    this._flashcardFlipped = false;
-    const panel = this.container.querySelector('#flashcard-panel');
-    const flashcardData = this._getFlashcardData(type);
-    const cards = flashcardData.cards;
-    
-    const current = cards[this._flashcardIndex];
-    const isFlipped = this._learnedCards.has(`${type}-${this._flashcardIndex}`);
+  _showFlashcardModal() {
+    const existingModal = document.getElementById('fc-global-modal');
+    if (existingModal) existingModal.remove();
 
-    panel.innerHTML = `
-      <div style="background: var(--color-bg-panel); border-radius: var(--radius-lg); padding: 2rem; text-align: center;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-          <div style="font-size: var(--text-lg); font-weight: 700; color: var(--color-cyan);">${flashcardData.title}</div>
-          <div style="font-size: var(--text-sm); color: var(--color-text-muted);">Card ${this._flashcardIndex + 1} of ${cards.length}</div>
-        </div>
-
-        <div style="display: flex; justify-content: center; gap: 0.5rem; margin-bottom: 1.5rem; flex-wrap: wrap;">
-          <button class="fc-type-btn ${type === 'protocols' ? 'is-active' : ''}" data-type="protocols" style="
-            padding: 0.4rem 0.8rem; border-radius: var(--radius-sm); border: 1px solid var(--color-border);
-            background: ${type === 'protocols' ? 'var(--color-cyan-glow)' : 'var(--color-bg-dark)'};
-            color: ${type === 'protocols' ? 'var(--color-cyan)' : 'var(--color-text-secondary)'};
-            cursor: pointer; font-size: var(--text-xs);
-          ">📡 Protocols</button>
-          <button class="fc-type-btn ${type === 'ports' ? 'is-active' : ''}" data-type="ports" style="
-            padding: 0.4rem 0.8rem; border-radius: var(--radius-sm); border: 1px solid var(--color-border);
-            background: ${type === 'ports' ? 'var(--color-cyan-glow)' : 'var(--color-bg-dark)'};
-            color: ${type === 'ports' ? 'var(--color-cyan)' : 'var(--color-text-secondary)'};
-            cursor: pointer; font-size: var(--text-xs);
-          ">🔌 Ports</button>
-          <button class="fc-type-btn ${type === 'osi' ? 'is-active' : ''}" data-type="osi" style="
-            padding: 0.4rem 0.8rem; border-radius: var(--radius-sm); border: 1px solid var(--color-border);
-            background: ${type === 'osi' ? 'var(--color-cyan-glow)' : 'var(--color-bg-dark)'};
-            color: ${type === 'osi' ? 'var(--color-cyan)' : 'var(--color-text-secondary)'};
-            cursor: pointer; font-size: var(--text-xs);
-          ">📚 OSI</button>
-          <button class="fc-type-btn ${type === 'cli' ? 'is-active' : ''}" data-type="cli" style="
-            padding: 0.4rem 0.8rem; border-radius: var(--radius-sm); border: 1px solid var(--color-border);
-            background: ${type === 'cli' ? 'var(--color-cyan-glow)' : 'var(--color-bg-dark)'};
-            color: ${type === 'cli' ? 'var(--color-cyan)' : 'var(--color-text-secondary)'};
-            cursor: pointer; font-size: var(--text-xs);
-          ">💻 CLI</button>
-        </div>
-
-        <div id="flashcard-inner" style="
-          background: var(--color-bg-dark);
-          border: 2px solid ${isFlipped ? 'var(--color-green)' : 'var(--color-cyan)'};
-          border-radius: var(--radius-lg);
-          padding: 2rem;
-          min-height: 200px;
-          display: flex;
-          flex-direction: column;
-          justify-content: center;
-          align-items: center;
-          cursor: pointer;
-          transition: all 0.3s;
-        ">
-          <div class="front">
-            <div style="font-size: var(--text-3xl); font-weight: 700; color: var(--color-cyan); margin-bottom: 0.5rem;">${current.front}</div>
-            <div style="font-size: var(--text-base); color: var(--color-text-muted);">${current.frontSub}</div>
-            <div style="margin-top: 1rem; padding: 0.5rem 1rem; background: var(--color-bg-panel); border-radius: var(--radius-sm); display: inline-block;">
-              <span style="color: var(--color-amber); font-weight: 700;">${current.layer}</span>
-            </div>
-            <div style="margin-top: 1.5rem; font-size: var(--text-sm); color: var(--color-text-muted);">Click or press Space to flip</div>
-          </div>
-          <div class="back" style="display: none; text-align: left; width: 100%;">
-            <div style="font-size: var(--text-base); color: var(--color-text-secondary); white-space: pre-line; line-height: 1.8;">${current.back}</div>
-          </div>
-        </div>
-
-        <div style="display: flex; justify-content: center; gap: 1rem; margin-top: 1.5rem;">
-          <button id="fc-shuffle" style="padding: 0.5rem 1rem; background: var(--color-bg-dark); border: 1px solid var(--color-border); border-radius: var(--radius-sm); color: var(--color-text-primary); cursor: pointer;">🔀 Shuffle</button>
-          <button id="fc-prev" style="padding: 0.5rem 1rem; background: var(--color-bg-dark); border: 1px solid var(--color-border); border-radius: var(--radius-sm); color: var(--color-text-primary); cursor: pointer;">← Previous</button>
-          <button id="fc-mark" style="padding: 0.5rem 1rem; background: ${isFlipped ? 'var(--color-green)' : 'var(--color-bg-dark)'}; border: 1px solid var(--color-border); border-radius: var(--radius-sm); color: var(--color-text-primary); cursor: pointer;">
-            ${isFlipped ? '✓ Learned' : 'Mark as Learned'}
-          </button>
-          <button id="fc-next" style="padding: 0.5rem 1rem; background: var(--color-cyan); border: none; border-radius: var(--radius-sm); color: var(--color-bg-deepest); font-weight: 700; cursor: pointer;">Next →</button>
-        </div>
-
-        <div style="margin-top: 1rem; text-align: center;">
-          <span style="font-size: var(--text-xs); color: var(--color-text-muted);">← → Arrow keys to navigate • Space to flip</span>
-        </div>
-
-        <div style="margin-top: 0.5rem;">
-          <button id="fc-close" style="padding: 0.5rem; background: none; border: none; color: var(--color-text-muted); cursor: pointer; font-size: var(--text-sm);">Close Flashcards</button>
+    const modal = document.createElement('div');
+    modal.id = 'fc-global-modal';
+    modal.className = 'fc-modal-overlay fc-modal-overlay--command';
+    modal.innerHTML = `
+      <div class="fc-modal-container fc-modal-container--command">
+        <div id="fc-deck-selection-content">
+          ${this._getDeckSelectionHTML()}
         </div>
       </div>
     `;
 
-    panel.querySelectorAll('.fc-type-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        this._flashcardIndex = 0;
-        this._showFlashcard(btn.getAttribute('data-type'));
+    document.body.appendChild(modal);
+    this._bindDeckSelectionModalEvents(modal);
+    this._bindKeyboardNav('flashcards');
+  }
+
+  _getFlashcardDeckMeta(deckId) {
+    const meta = {
+      'network-fundamentals': { icon: 'NET', tone: 'signal', label: 'Foundation' },
+      'network-access': { icon: 'PORT', tone: 'amber', label: 'Access' },
+      'ip-connectivity': { icon: 'CYCLE', tone: 'mint', label: 'Routing' },
+      'ip-services': { icon: 'CONFIG', tone: 'violet', label: 'Services' },
+      'security-fundamentals': { icon: 'LOCK', tone: 'danger', label: 'Security' },
+      'automation-programmability': { icon: 'AUTO', tone: 'violet', label: 'Automation' },
+      'protocols-reference': { icon: 'ARP', tone: 'signal', label: 'Protocols' },
+      'ports-reference': { icon: 'PORTS', tone: 'amber', label: 'Ports' },
+    };
+
+    return meta[deckId] || { icon: 'LEARN', tone: 'signal', label: 'General' };
+  }
+
+  _getFlashcardDeckStatus(progress) {
+    if (progress.dueToday > 0) return 'Due Queue';
+    if (progress.completion >= 75) return 'Maintained';
+    if (progress.completion >= 35) return 'In Progress';
+    return 'Ready';
+  }
+
+  _getFlashcardNoticeHTML() {
+    if (!this._flashcardNotice) return '';
+
+    return `
+      <div class="ops-flash__notice ops-flash__notice--${this._flashcardNotice.type}" role="status" aria-live="polite">
+        ${escapeHtml(this._flashcardNotice.message)}
+      </div>
+    `;
+  }
+
+  _setFlashcardNotice(type, message) {
+    this._flashcardNotice = { type, message };
+    this._refreshFlashcardDeckSelection();
+  }
+
+  _clearFlashcardNotice() {
+    this._flashcardNotice = null;
+  }
+
+  _refreshFlashcardDeckSelection() {
+    const modal = document.getElementById('fc-global-modal');
+    if (!modal || this._currentSession) return;
+
+    const contentContainer = modal.querySelector('#fc-deck-selection-content');
+    if (!contentContainer) return;
+
+    contentContainer.innerHTML = this._getDeckSelectionHTML();
+    this._bindDeckSelectionModalEvents(modal);
+  }
+
+  _applyFlashcardProgress(root) {
+    root.querySelectorAll('[data-progress]').forEach(el => {
+      const raw = Number(el.getAttribute('data-progress'));
+      const value = Number.isFinite(raw) ? Math.max(0, Math.min(100, raw)) : 0;
+      el.style.width = `${value}%`;
+    });
+  }
+
+  _getDeckSelectionHTML() {
+    const decks = flashcardEngine.getAllDecks();
+    const overallProgress = flashcardEngine.getOverallProgress();
+    const dueLoadLabel = overallProgress.dueToday > 0 ? 'Pending Recall' : 'Stable Queue';
+
+    return `
+      <div class="ops-flash">
+        <header class="ops-flash__hero">
+          <div class="ops-flash__hero-copy">
+            <div class="ops-flash__kicker">Flashcard Command Deck</div>
+            <h2 class="ops-flash__title">CCNA <span class="ops-flash__title-accent">Flashcards</span></h2>
+            <p class="ops-flash__body">
+              Launch active-recall sessions inside the dashboard command layer. Review due cards, inspect deck load,
+              and keep recall decisions visible instead of hiding them inside a generic popup flow.
+            </p>
+            ${this._getFlashcardNoticeHTML()}
+          </div>
+          <div class="ops-flash__hero-stats">
+            <div class="ops-flash__stat">
+              <span class="ops-flash__stat-label">Decks Online</span>
+              <span class="ops-flash__stat-value ops-flash__stat-value--signal">${overallProgress.totalDecks}</span>
+            </div>
+            <div class="ops-flash__stat">
+              <span class="ops-flash__stat-label">Cards Loaded</span>
+              <span class="ops-flash__stat-value">${overallProgress.totalCards}</span>
+            </div>
+            <div class="ops-flash__stat">
+              <span class="ops-flash__stat-label">${dueLoadLabel}</span>
+              <span class="ops-flash__stat-value ops-flash__stat-value--amber">${overallProgress.dueToday}</span>
+            </div>
+            <div class="ops-flash__stat">
+              <span class="ops-flash__stat-label">Mastery</span>
+              <span class="ops-flash__stat-value ops-flash__stat-value--mint">${overallProgress.overallCompletion}%</span>
+            </div>
+          </div>
+        </header>
+
+        <div class="ops-flash__shell">
+          <div class="ops-flash__main">
+            <section class="ops-flash__rail">
+              <div>
+                <div class="ops-flash__rail-title">Deck Selection Rail</div>
+                <div class="ops-flash__rail-copy">Choose a deck by workload and mastery, not just by title.</div>
+              </div>
+              <div class="ops-flash__rail-actions">
+                <button class="ops-flash__action ops-flash__action--primary fc-modal-action-btn" data-action="import" type="button">Import Deck</button>
+                <button class="ops-flash__action fc-modal-action-btn" data-action="export" type="button">Export Queue</button>
+                <button class="ops-flash__action fc-modal-action-btn" data-action="add-deck" type="button">Create Deck</button>
+                <button class="ops-flash__action" id="fc-global-close" type="button">Close</button>
+              </div>
+            </section>
+
+            <section class="ops-flash__deck-grid">
+              ${decks.map(deck => {
+                const progress = flashcardEngine.getDeckProgress(deck.id);
+                const meta = this._getFlashcardDeckMeta(deck.id);
+                const status = this._getFlashcardDeckStatus(progress);
+                return `
+                  <article class="ops-flash__deck ops-flash__deck--${meta.tone} fc-deck-selectable" data-deck-id="${deck.id}" tabindex="0" role="button" aria-label="Start ${escapeHtml(deck.name)} deck">
+                    <div class="ops-flash__deck-top">
+                      <span class="ops-flash__badge">${meta.label}</span>
+                      <span class="ops-flash__status">${status}</span>
+                    </div>
+                    <div class="ops-flash__deck-icon">${renderTokenIcon(meta.icon, 'learning-token-icon')}</div>
+                    <div class="ops-flash__deck-name">${escapeHtml(deck.name)}</div>
+                    <p class="ops-flash__deck-copy">${escapeHtml(deck.description || 'Focused recall deck for CCNA review.')}</p>
+                    <div class="ops-flash__metrics">
+                      <div class="ops-flash__metric">
+                        <span class="ops-flash__metric-label">Cards</span>
+                        <span class="ops-flash__metric-value">${progress.totalCards}</span>
+                      </div>
+                      <div class="ops-flash__metric">
+                        <span class="ops-flash__metric-label">Due</span>
+                        <span class="ops-flash__metric-value">${progress.dueToday}</span>
+                      </div>
+                      <div class="ops-flash__metric">
+                        <span class="ops-flash__metric-label">Mastered</span>
+                        <span class="ops-flash__metric-value">${progress.completion}%</span>
+                      </div>
+                    </div>
+                    <div class="ops-flash__progress">
+                      <div class="ops-flash__progress-fill" data-progress="${progress.completion}"></div>
+                    </div>
+                    <button class="ops-flash__action ops-flash__action--primary ops-flash__deck-cta fc-start-study-btn" data-deck-id="${deck.id}" type="button">Launch Session</button>
+                  </article>
+                `;
+              }).join('')}
+            </section>
+          </div>
+
+          <aside class="ops-flash__side">
+            <section class="ops-flash__summary">
+              <div class="ops-flash__summary-title">Review Workflow</div>
+              <div class="ops-flash__summary-list">
+                <div class="ops-flash__summary-item">
+                  <span class="ops-flash__summary-key">1</span>
+                  <div>
+                    <div class="ops-flash__summary-value">Inspect the due queue</div>
+                    <div class="ops-flash__summary-copy">Start with decks carrying the highest recall debt.</div>
+                  </div>
+                </div>
+                <div class="ops-flash__summary-item">
+                  <span class="ops-flash__summary-key">2</span>
+                  <div>
+                    <div class="ops-flash__summary-value">Reveal only when ready</div>
+                    <div class="ops-flash__summary-copy">The question surface stays dominant until you intentionally flip.</div>
+                  </div>
+                </div>
+                <div class="ops-flash__summary-item">
+                  <span class="ops-flash__summary-key">3</span>
+                  <div>
+                    <div class="ops-flash__summary-value">Rate the recall honestly</div>
+                    <div class="ops-flash__summary-copy">Each button previews how far the next interval will move.</div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section class="ops-flash__summary">
+              <div class="ops-flash__summary-title">Anchored Vocabulary</div>
+              <div class="ops-flash__term-list">
+                <article class="ops-flash__term">
+                  <div class="ops-flash__term-title">Due</div>
+                  <div class="ops-flash__term-copy">Cards whose next review time has arrived.</div>
+                </article>
+                <article class="ops-flash__term">
+                  <div class="ops-flash__term-title">Mastered</div>
+                  <div class="ops-flash__term-copy">Cards that have reached mature intervals through repeated successful recall.</div>
+                </article>
+                <article class="ops-flash__term">
+                  <div class="ops-flash__term-title">Again / Hard / Good / Easy</div>
+                  <div class="ops-flash__term-copy">Recall ratings that directly control the next review interval.</div>
+                </article>
+              </div>
+            </section>
+          </aside>
+        </div>
+      </div>
+    `;
+  }
+
+  _bindDeckSelectionModalEvents(modal) {
+    modal.querySelector('#fc-global-close')?.addEventListener('click', () => {
+      this._closeFlashcardMode();
+    });
+
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        this._closeFlashcardMode();
+      }
+    });
+
+    modal.querySelectorAll('.fc-start-study-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const deckId = btn.getAttribute('data-deck-id');
+        this._startStudyFromModal(deckId);
       });
     });
 
-    const flashcardInner = panel.querySelector('#flashcard-inner');
-    flashcardInner.addEventListener('click', () => {
-      this._flashcardFlipped = !this._flashcardFlipped;
-      flashcardInner.querySelector('.front').style.display = this._flashcardFlipped ? 'none' : 'block';
-      flashcardInner.querySelector('.back').style.display = this._flashcardFlipped ? 'block' : 'none';
+    modal.querySelectorAll('.fc-deck-selectable').forEach(card => {
+      card.addEventListener('click', () => {
+        const deckId = card.getAttribute('data-deck-id');
+        this._startStudyFromModal(deckId);
+      });
+      card.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          const deckId = card.getAttribute('data-deck-id');
+          this._startStudyFromModal(deckId);
+        }
+      });
     });
 
-    panel.querySelector('#fc-shuffle').addEventListener('click', () => {
-      const deck = flashcardData.cards;
-      for (let i = deck.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [deck[i], deck[j]] = [deck[j], deck[i]];
+    modal.querySelectorAll('.fc-modal-action-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const action = btn.getAttribute('data-action');
+        if (action === 'import') this._showImportModal(modal);
+        else if (action === 'export') this._exportAllDecks();
+        else if (action === 'add-deck') this._showAddDeckModal(modal);
+      });
+    });
+
+    this._applyFlashcardProgress(modal);
+  }
+
+  _startStudyFromModal(deckId) {
+    const deck = flashcardEngine.getDeck(deckId);
+    if (!deck || deck.cards.length === 0) {
+      this._setFlashcardNotice('warning', 'This deck has no cards yet. Import cards or create a deck with content before starting a session.');
+      return;
+    }
+
+    this._currentDeckId = deckId;
+    this._currentSession = flashcardEngine.startSession(deckId, { includeNew: true, includeDue: true });
+    this._isFlipped = false;
+    this._clearFlashcardNotice();
+    
+    // Update modal content to show study session
+    const modal = document.getElementById('fc-global-modal');
+    if (modal) {
+      const contentContainer = modal.querySelector('#fc-deck-selection-content');
+      if (contentContainer) {
+        contentContainer.innerHTML = this._getStudySessionHTML();
+        this._bindStudySessionModalEvents(modal);
       }
-      this._flashcardIndex = 0;
-      this._showFlashcard(type);
+    }
+  }
+
+  _getStudySessionHTML() {
+    const session = this._currentSession;
+    if (!session) return '<p>No session active</p>';
+
+    const deck = session.deck;
+    const cards = session.cards;
+    const currentIndex = flashcardEngine.getCurrentCardIndex();
+    const currentCard = cards[currentIndex];
+    
+    if (!currentCard) {
+      return this._getSessionStatsHTML();
+    }
+
+    const progress = ((currentIndex + 1) / cards.length) * 100;
+    const stats = flashcardEngine.getSessionStats();
+    const deckMeta = this._getFlashcardDeckMeta(deck.id);
+    const revealClass = this._isFlipped ? 'is-flipped' : '';
+    const ratingVisibilityClass = this._isFlipped ? '' : 'is-hidden';
+    const difficulty = currentCard.difficulty || 'new';
+
+    return `
+      <div class="ops-flash">
+        <header class="ops-flash__hero">
+          <div class="ops-flash__hero-copy">
+            <div class="ops-flash__kicker">Live Study Session</div>
+            <h2 class="ops-flash__title">${escapeHtml(deck.name)} <span class="ops-flash__title-accent">Review Loop</span></h2>
+            <p class="ops-flash__body">
+              Read the prompt, decide if you truly know it, reveal the answer only when ready, then rate the recall honestly.
+            </p>
+            <div class="ops-flash__progress ops-flash__progress--hero">
+              <div class="ops-flash__progress-fill" data-progress="${progress}"></div>
+            </div>
+          </div>
+          <div class="ops-flash__hero-stats">
+            <div class="ops-flash__stat">
+              <span class="ops-flash__stat-label">Card</span>
+              <span class="ops-flash__stat-value ops-flash__stat-value--signal">${currentIndex + 1}/${cards.length}</span>
+            </div>
+            <div class="ops-flash__stat">
+              <span class="ops-flash__stat-label">Reviewed</span>
+              <span class="ops-flash__stat-value">${stats.cardsReviewed}</span>
+            </div>
+            <div class="ops-flash__stat">
+              <span class="ops-flash__stat-label">Accuracy</span>
+              <span class="ops-flash__stat-value ops-flash__stat-value--mint">${stats.accuracy}%</span>
+            </div>
+            <div class="ops-flash__stat">
+              <span class="ops-flash__stat-label">State</span>
+              <span class="ops-flash__stat-value ops-flash__stat-value--amber">${difficulty}</span>
+            </div>
+          </div>
+        </header>
+
+        <div class="ops-flash__shell">
+          <div class="ops-flash__main">
+            <section class="ops-flash__study">
+              <div class="ops-flash__stage">
+                <div>
+                  <div class="ops-flash__stage-title">Question → Reveal → Rate</div>
+                  <div class="ops-flash__stage-copy">The next interval only appears after the answer is revealed.</div>
+                </div>
+                <div class="ops-flash__stage-meta">
+                  <span class="ops-flash__chip ops-flash__chip--signal">${deckMeta.label}</span>
+                  <span class="ops-flash__chip">${difficulty}</span>
+                  <span class="ops-flash__chip ops-flash__chip--mint">${this._isFlipped ? 'Answer Revealed' : 'Question Locked'}</span>
+                </div>
+              </div>
+
+              <div class="ops-flash__card-wrap" id="fc-card-container">
+                <div class="ops-flash__card ${revealClass}" id="fc-card-3d" tabindex="0" role="button" aria-label="Flip flashcard">
+                  <article class="ops-flash__card-face ops-flash__card-face--question">
+                    <div class="ops-flash__card-head">
+                      <span class="ops-flash__card-state">${escapeHtml(deck.name)}</span>
+                      <span class="ops-flash__card-index">Card ${currentIndex + 1} of ${cards.length}</span>
+                    </div>
+                    <div class="ops-flash__card-body">
+                      <div class="ops-flash__prompt-label">Prompt</div>
+                      <h3 class="ops-flash__prompt">${escapeHtml(currentCard.front)}</h3>
+                    </div>
+                    <div class="ops-flash__card-foot">
+                      <span class="ops-flash__hint">Press Space or click to reveal the answer.</span>
+                      <span class="ops-flash__card-index">Question Surface</span>
+                    </div>
+                  </article>
+
+                  <article class="ops-flash__card-face ops-flash__card-face--answer">
+                    <div class="ops-flash__card-head">
+                      <span class="ops-flash__card-state">Answer Surface</span>
+                      <span class="ops-flash__card-index">${this._getIntervalText(currentCard, 2)} typical next review</span>
+                    </div>
+                    <div class="ops-flash__card-body">
+                      <div class="ops-flash__prompt-label">Answer</div>
+                      <div class="ops-flash__answer">${escapeHtml(currentCard.back)}</div>
+                    </div>
+                    <div class="ops-flash__card-foot">
+                      <span class="ops-flash__hint">Use the rating bar below to set the next interval.</span>
+                      <span class="ops-flash__card-index">Answer Revealed</span>
+                    </div>
+                  </article>
+                </div>
+              </div>
+
+              <div class="ops-flash__rating-bar ${ratingVisibilityClass}" id="fc-rating-buttons">
+                <button class="ops-flash__rate ops-flash__rate--again fc-rating-btn" data-rating="0" type="button">
+                  <span class="ops-flash__rate-label">Again</span>
+                  <span class="ops-flash__rate-time">Reset queue</span>
+                </button>
+                <button class="ops-flash__rate ops-flash__rate--hard fc-rating-btn" data-rating="1" type="button">
+                  <span class="ops-flash__rate-label">Hard</span>
+                  <span class="ops-flash__rate-time">~6 min / short retry</span>
+                </button>
+                <button class="ops-flash__rate ops-flash__rate--good fc-rating-btn" data-rating="2" type="button">
+                  <span class="ops-flash__rate-label">Good</span>
+                  <span class="ops-flash__rate-time">${this._getIntervalText(currentCard, 2)}</span>
+                </button>
+                <button class="ops-flash__rate ops-flash__rate--easy fc-rating-btn" data-rating="3" type="button">
+                  <span class="ops-flash__rate-label">Easy</span>
+                  <span class="ops-flash__rate-time">${this._getIntervalText(currentCard, 3)}</span>
+                </button>
+              </div>
+
+              <div class="ops-flash__controls">
+                <div class="ops-flash__rail-actions">
+                  <button id="fc-back-to-decks" class="ops-flash__action" type="button">All Decks</button>
+                  <button id="fc-prev-card" class="ops-flash__action" type="button">Previous</button>
+                  <button id="fc-next-card" class="ops-flash__action ops-flash__action--primary" type="button">${this._isFlipped ? 'Rate Good + Next' : 'Reveal Answer'}</button>
+                </div>
+                <div class="ops-flash__shortcut-row">
+                  <span class="ops-flash__shortcut">Space: Flip</span>
+                  <span class="ops-flash__shortcut">1-4: Rate</span>
+                  <span class="ops-flash__shortcut">Left/Right: Navigate</span>
+                  <span class="ops-flash__shortcut">Esc: Close</span>
+                </div>
+                <button id="fc-end-session" class="ops-flash__action ops-flash__action--danger" type="button">End Session</button>
+              </div>
+            </section>
+          </div>
+
+          <aside class="ops-flash__side">
+            <section class="ops-flash__summary">
+              <div class="ops-flash__summary-title">Telemetry</div>
+              <div class="ops-flash__summary-grid">
+                <div class="ops-flash__summary-card">
+                  <span class="ops-flash__summary-card-value">${stats.cardsReviewed}</span>
+                  <span class="ops-flash__summary-card-label">Reviewed</span>
+                </div>
+                <div class="ops-flash__summary-card">
+                  <span class="ops-flash__summary-card-value">${stats.accuracy}%</span>
+                  <span class="ops-flash__summary-card-label">Accuracy</span>
+                </div>
+                <div class="ops-flash__summary-card">
+                  <span class="ops-flash__summary-card-value">${this._formatTime(stats.elapsed)}</span>
+                  <span class="ops-flash__summary-card-label">Elapsed</span>
+                </div>
+              </div>
+            </section>
+
+            <section class="ops-flash__summary">
+              <div class="ops-flash__summary-title">What This Rating Means</div>
+              <div class="ops-flash__term-list">
+                <article class="ops-flash__term">
+                  <div class="ops-flash__term-title">Again</div>
+                  <div class="ops-flash__term-copy">Use when recall failed. The card returns quickly.</div>
+                </article>
+                <article class="ops-flash__term">
+                  <div class="ops-flash__term-title">Good</div>
+                  <div class="ops-flash__term-copy">Use when recall felt correct without heavy effort.</div>
+                </article>
+                <article class="ops-flash__term">
+                  <div class="ops-flash__term-title">Easy</div>
+                  <div class="ops-flash__term-copy">Use only when the answer felt immediate and obvious.</div>
+                </article>
+              </div>
+            </section>
+          </aside>
+        </div>
+      </div>
+    `;
+  }
+
+  _getSessionStatsHTML() {
+    const stats = flashcardEngine.getSessionStats();
+    const deck = flashcardEngine.getDeck(this._currentDeckId);
+
+    return `
+      <div class="ops-flash">
+        <header class="ops-flash__hero">
+          <div class="ops-flash__hero-copy">
+            <div class="ops-flash__kicker">Session Complete</div>
+            <h2 class="ops-flash__title">${escapeHtml(deck?.name || 'Deck')} <span class="ops-flash__title-accent">Review Report</span></h2>
+            <p class="ops-flash__body">
+              You completed the current queue. Use this report to decide whether to run another cycle now or return to the deck rail.
+            </p>
+          </div>
+          <div class="ops-flash__hero-stats">
+            <div class="ops-flash__stat">
+              <span class="ops-flash__stat-label">Reviewed</span>
+              <span class="ops-flash__stat-value ops-flash__stat-value--signal">${stats.cardsReviewed}</span>
+            </div>
+            <div class="ops-flash__stat">
+              <span class="ops-flash__stat-label">Accuracy</span>
+              <span class="ops-flash__stat-value ops-flash__stat-value--mint">${stats.accuracy}%</span>
+            </div>
+            <div class="ops-flash__stat">
+              <span class="ops-flash__stat-label">Elapsed</span>
+              <span class="ops-flash__stat-value">${this._formatTime(stats.elapsed)}</span>
+            </div>
+            <div class="ops-flash__stat">
+              <span class="ops-flash__stat-label">Next Move</span>
+              <span class="ops-flash__stat-value ops-flash__stat-value--amber">${stats.cardsReviewed > 0 ? 'Review' : 'Idle'}</span>
+            </div>
+          </div>
+        </header>
+
+        <div class="ops-flash__shell">
+          <div class="ops-flash__main">
+            <section class="ops-flash__summary">
+              <div class="ops-flash__summary-title">Recall Breakdown</div>
+              <div class="ops-flash__summary-grid ops-flash__summary-grid--ratings">
+                <div class="ops-flash__summary-card">
+                  <span class="ops-flash__summary-card-value">${stats.ratings.again}</span>
+                  <span class="ops-flash__summary-card-label">Again</span>
+                </div>
+                <div class="ops-flash__summary-card">
+                  <span class="ops-flash__summary-card-value">${stats.ratings.hard}</span>
+                  <span class="ops-flash__summary-card-label">Hard</span>
+                </div>
+                <div class="ops-flash__summary-card">
+                  <span class="ops-flash__summary-card-value">${stats.ratings.good}</span>
+                  <span class="ops-flash__summary-card-label">Good</span>
+                </div>
+                <div class="ops-flash__summary-card">
+                  <span class="ops-flash__summary-card-value">${stats.ratings.easy}</span>
+                  <span class="ops-flash__summary-card-label">Easy</span>
+                </div>
+              </div>
+              <div class="ops-flash__controls">
+                <div class="ops-flash__rail-actions">
+                  <button class="ops-flash__action" id="fc-back-to-decks-final" type="button">Return to Decks</button>
+                  <button class="ops-flash__action ops-flash__action--primary" id="fc-study-again" type="button">Study Again</button>
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <aside class="ops-flash__side">
+            <section class="ops-flash__summary">
+              <div class="ops-flash__summary-title">Interpretation</div>
+              <div class="ops-flash__term-list">
+                <article class="ops-flash__term">
+                  <div class="ops-flash__term-title">High Again / Hard count</div>
+                  <div class="ops-flash__term-copy">This indicates weak recall under pressure. Re-run the deck sooner.</div>
+                </article>
+                <article class="ops-flash__term">
+                  <div class="ops-flash__term-title">High Good / Easy count</div>
+                  <div class="ops-flash__term-copy">This indicates the interval can expand without sacrificing retention.</div>
+                </article>
+              </div>
+            </section>
+          </aside>
+        </div>
+      </div>
+    `;
+  }
+
+  _bindStudySessionModalEvents(modal) {
+    modal.querySelector('#fc-back-to-decks')?.addEventListener('click', () => {
+      flashcardEngine.endSession();
+      this._currentSession = null;
+      const contentContainer = modal.querySelector('#fc-deck-selection-content');
+      if (contentContainer) {
+        contentContainer.innerHTML = this._getDeckSelectionHTML();
+        this._bindDeckSelectionModalEvents(modal);
+      }
     });
 
-    panel.querySelector('#fc-prev').addEventListener('click', () => {
-      this._flashcardIndex = Math.max(0, this._flashcardIndex - 1);
-      this._showFlashcard(type);
+    modal.querySelector('#fc-end-session')?.addEventListener('click', () => {
+      flashcardEngine.endSession();
+      this._currentSession = null;
+      const contentContainer = modal.querySelector('#fc-deck-selection-content');
+      if (contentContainer) {
+        contentContainer.innerHTML = this._getDeckSelectionHTML();
+        this._bindDeckSelectionModalEvents(modal);
+      }
     });
 
-    panel.querySelector('#fc-next').addEventListener('click', () => {
-      this._flashcardIndex = Math.min(cards.length - 1, this._flashcardIndex + 1);
-      this._showFlashcard(type);
+    modal.querySelector('#fc-prev-card')?.addEventListener('click', () => {
+      this._previousCardInModal(modal);
     });
 
-    panel.querySelector('#fc-mark').addEventListener('click', () => {
-      const key = `${type}-${this._flashcardIndex}`;
-      if (this._learnedCards.has(key)) {
-        this._learnedCards.delete(key);
+    modal.querySelector('#fc-next-card')?.addEventListener('click', () => {
+      if (this._isFlipped) {
+        this._rateCardInModal(2, modal);
       } else {
-        this._learnedCards.add(key);
+        this._flipCardInModal(modal);
       }
-      this._showFlashcard(type);
     });
 
-    panel.querySelector('#fc-close').addEventListener('click', () => {
-      panel.style.display = 'none';
-      this.container.querySelector('#lib-content').style.display = 'block';
-      this._unbindKeyboardNav();
+    const card3d = modal.querySelector('#fc-card-3d');
+    card3d?.addEventListener('click', () => {
+      this._flipCardInModal(modal);
     });
+    card3d?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        this._flipCardInModal(modal);
+      }
+    });
+
+    modal.querySelectorAll('.fc-rating-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const rating = parseInt(btn.getAttribute('data-rating'));
+        this._rateCardInModal(rating, modal);
+      });
+    });
+
+    modal.querySelector('#fc-back-to-decks-final')?.addEventListener('click', () => {
+      flashcardEngine.endSession();
+      this._currentSession = null;
+      const contentContainer = modal.querySelector('#fc-deck-selection-content');
+      if (contentContainer) {
+        contentContainer.innerHTML = this._getDeckSelectionHTML();
+        this._bindDeckSelectionModalEvents(modal);
+      }
+    });
+
+    modal.querySelector('#fc-study-again')?.addEventListener('click', () => {
+      if (this._currentDeckId) {
+        this._startStudyFromModal(this._currentDeckId);
+      }
+    });
+
+    this._setupSwipeGesturesModal(modal);
+    this._applyFlashcardProgress(modal);
+  }
+
+  _flipCardInModal(modal) {
+    this._isFlipped = !this._isFlipped;
+    const card3d = modal.querySelector('#fc-card-3d');
+    const ratingButtons = modal.querySelector('#fc-rating-buttons');
+    
+    if (card3d) {
+      card3d.classList.toggle('is-flipped', this._isFlipped);
+    }
+    
+    if (ratingButtons) {
+      ratingButtons.classList.toggle('is-hidden', !this._isFlipped);
+    }
+  }
+
+  _rateCardInModal(rating, modal) {
+    const result = flashcardEngine.rateCurrentCard(rating);
+    
+    if (result) {
+      if (result.sessionComplete) {
+        const contentContainer = modal.querySelector('#fc-deck-selection-content');
+        if (contentContainer) {
+          contentContainer.innerHTML = this._getSessionStatsHTML();
+          this._bindStudySessionModalEvents(modal);
+        }
+      } else {
+        this._isFlipped = false;
+        const contentContainer = modal.querySelector('#fc-deck-selection-content');
+        if (contentContainer) {
+          contentContainer.innerHTML = this._getStudySessionHTML();
+          this._bindStudySessionModalEvents(modal);
+        }
+      }
+    }
+  }
+
+  _previousCardInModal(modal) {
+    const card = flashcardEngine.previousCard();
+    if (card) {
+      this._isFlipped = false;
+      const contentContainer = modal.querySelector('#fc-deck-selection-content');
+      if (contentContainer) {
+        contentContainer.innerHTML = this._getStudySessionHTML();
+        this._bindStudySessionModalEvents(modal);
+      }
+      
+      const card3d = modal.querySelector('#fc-card-3d');
+      if (card3d) {
+        card3d.classList.add('is-rewinding');
+        setTimeout(() => card3d.classList.remove('is-rewinding'), 240);
+      }
+    }
+  }
+
+  _setupSwipeGesturesModal(modal) {
+    const container = modal.querySelector('#fc-card-container');
+    if (!container) return;
+
+    container.addEventListener('touchstart', (e) => {
+      this._touchStartX = e.touches[0].clientX;
+      this._touchStartY = e.touches[0].clientY;
+    }, { passive: true });
+
+    container.addEventListener('touchmove', (e) => {
+      const touchX = e.touches[0].clientX;
+      const diffX = touchX - this._touchStartX;
+      
+      if (Math.abs(diffX) > 10) {
+        container.classList.toggle('swiping-left', diffX < 0);
+        container.classList.toggle('swiping-right', diffX > 0);
+      }
+    }, { passive: true });
+
+    container.addEventListener('touchend', (e) => {
+      const touchX = e.changedTouches[0].clientX;
+      const diffX = touchX - this._touchStartX;
+      const threshold = 80;
+
+      container.classList.remove('swiping-left', 'swiping-right');
+
+      if (Math.abs(diffX) > threshold) {
+        if (diffX > 0) {
+          this._previousCardInModal(modal);
+        } else {
+          if (!this._isFlipped) {
+            this._flipCardInModal(modal);
+          }
+        }
+      }
+    }, { passive: true });
+  }
+
+  _showImportModal(parentModal) {
+    const importModal = document.createElement('div');
+    importModal.className = 'fc-modal-overlay fc-modal-overlay--command';
+    importModal.innerHTML = `
+      <div class="fc-modal-container fc-modal-container--narrow">
+        <div class="fc-modal-header">
+          <div class="fc-modal-title">IMPORT Import Deck</div>
+          <button class="fc-modal-close" id="fc-import-close">×</button>
+        </div>
+        <div class="fc-form-group">
+          <label class="fc-form-label">Paste JSON data:</label>
+          <textarea id="fc-import-data" class="fc-form-textarea fc-form-textarea--tall" placeholder='{"name": "My Deck", "cards": [{"front": "...", "back": "..."}]}'></textarea>
+        </div>
+        <div id="fc-import-message" class="ops-flash__dialog-message" aria-live="polite"></div>
+        <div class="ops-flash__dialog-actions">
+          <button class="fc-btn fc-btn-secondary" id="fc-import-cancel">Cancel</button>
+          <button class="fc-btn fc-btn-primary" id="fc-import-confirm">Import</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(importModal);
+
+    importModal.querySelector('#fc-import-close')?.addEventListener('click', () => importModal.remove());
+    importModal.querySelector('#fc-import-cancel')?.addEventListener('click', () => importModal.remove());
+    importModal.addEventListener('click', (e) => { if (e.target === importModal) importModal.remove(); });
+    
+    importModal.querySelector('#fc-import-confirm')?.addEventListener('click', () => {
+      const data = importModal.querySelector('#fc-import-data').value.trim();
+      const messageEl = importModal.querySelector('#fc-import-message');
+
+      if (!data) {
+        messageEl.textContent = 'Paste deck JSON before importing.';
+        return;
+      }
+
+      try {
+        flashcardEngine.importDeck(data, 'rich');
+        importModal.remove();
+        this._setFlashcardNotice('success', 'Deck imported successfully. The queue has been refreshed.');
+      } catch (e) {
+        messageEl.textContent = `Invalid JSON: ${e.message}`;
+      }
+    });
+  }
+
+  _showAddDeckModal(parentModal) {
+    const addModal = document.createElement('div');
+    addModal.className = 'fc-modal-overlay fc-modal-overlay--command';
+    addModal.innerHTML = `
+      <div class="fc-modal-container fc-modal-container--narrow">
+        <div class="fc-modal-header">
+          <div class="fc-modal-title">ADD New Deck</div>
+          <button class="fc-modal-close" id="fc-add-close">×</button>
+        </div>
+        <div class="fc-form-group">
+          <label class="fc-form-label">Deck Name</label>
+          <input type="text" id="fc-new-deck-name" class="fc-form-input" placeholder="e.g., Routing Protocols">
+        </div>
+        <div class="fc-form-group">
+          <label class="fc-form-label">Description</label>
+          <textarea id="fc-new-deck-desc" class="fc-form-textarea" placeholder="What topics does this deck cover?"></textarea>
+        </div>
+        <div class="fc-form-group">
+          <label class="fc-form-label">Category</label>
+          <select id="fc-new-deck-category" class="fc-form-input">
+            <option value="network-fundamentals">Network Fundamentals</option>
+            <option value="network-access">Network Access</option>
+            <option value="ip-connectivity">IP Connectivity</option>
+            <option value="ip-services">IP Services</option>
+            <option value="security-fundamentals">Security Fundamentals</option>
+            <option value="automation">Automation & Programmability</option>
+            <option value="general">General</option>
+          </select>
+        </div>
+        <div id="fc-add-message" class="ops-flash__dialog-message" aria-live="polite"></div>
+        <div class="ops-flash__dialog-actions">
+          <button class="fc-btn fc-btn-secondary" id="fc-add-cancel">Cancel</button>
+          <button class="fc-btn fc-btn-primary" id="fc-add-confirm">Create Deck</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(addModal);
+
+    addModal.querySelector('#fc-add-close')?.addEventListener('click', () => addModal.remove());
+    addModal.querySelector('#fc-add-cancel')?.addEventListener('click', () => addModal.remove());
+    addModal.addEventListener('click', (e) => { if (e.target === addModal) addModal.remove(); });
+    
+    addModal.querySelector('#fc-add-confirm')?.addEventListener('click', () => {
+      const name = addModal.querySelector('#fc-new-deck-name').value.trim();
+      const desc = addModal.querySelector('#fc-new-deck-desc').value.trim();
+      const category = addModal.querySelector('#fc-new-deck-category').value;
+      const messageEl = addModal.querySelector('#fc-add-message');
+      
+      if (!name) {
+        messageEl.textContent = 'Deck name is required.';
+        return;
+      }
+
+      flashcardEngine.createDeck({ name, description: desc, category });
+      addModal.remove();
+      this._setFlashcardNotice('success', `Deck "${name}" created and ready for review.`);
+    });
+  }
+
+  _renderFlashcardView() {
+    this._showFlashcardModal();
+  }
+
+  _exportDeck(deckId) {
+    const exportData = flashcardEngine.exportDeck(deckId, 'rich');
+    const json = JSON.stringify(exportData, null, 2);
+    
+    // Create download
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${exportData.deck?.name || 'deck'}_flashcards.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    this._setFlashcardNotice('success', `Exported ${exportData.deck?.name || 'deck'} deck.`);
+  }
+
+  _exportAllDecks() {
+    const exportData = flashcardEngine.exportAllDecks('rich');
+    const json = JSON.stringify(exportData, null, 2);
+    
+    // Copy to clipboard
+    navigator.clipboard.writeText(json).then(() => {
+      this._setFlashcardNotice('success', 'All decks exported to the clipboard.');
+    }).catch(() => {
+      // Fallback - download file
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'ccna_flashcards_all.json';
+      a.click();
+      URL.revokeObjectURL(url);
+      this._setFlashcardNotice('info', 'Clipboard export was unavailable, so a file download was generated instead.');
+    });
+  }
+
+  _formatTime(seconds) {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  }
+
+  _getIntervalText(card, rating) {
+    const result = flashcardEngine.calculateSM2(card, rating);
+    const interval = result.interval;
+    
+    if (interval === 0) return '<1 min';
+    if (interval === 1) return '1 day';
+    if (interval < 30) return `${interval} days`;
+    if (interval < 365) return `${Math.round(interval / 30)} mo`;
+    return `${Math.round(interval / 365)} yr`;
+  }
+
+  _renderDeckEditor(panel) {
+    // Placeholder editor shell until card authoring is redesigned.
+    panel.innerHTML = `
+      <section class="ops-flash ops-flash--editor-placeholder">
+        <div class="ops-flash__shell ops-flash__shell--single">
+          <header class="ops-flash__hero">
+            <div>
+              <p class="ops-flash__kicker">Deck Editor</p>
+              <h3 class="ops-flash__title">Card Authoring Pipeline</h3>
+            </div>
+            <button id="fc-back-to-decks" class="ops-flash__action">Back to Decks</button>
+          </header>
+          <section class="ops-flash__summary">
+            <div class="ops-flash__summary-grid">
+              <article class="ops-flash__summary-item">
+                <p class="ops-flash__summary-key">Status</p>
+                <p class="ops-flash__summary-value">Planned</p>
+                <p class="ops-flash__summary-copy">
+                  Card authoring will be redesigned after the study workflow is stabilized.
+                </p>
+              </article>
+              <article class="ops-flash__summary-item">
+                <p class="ops-flash__summary-key">Current Path</p>
+                <p class="ops-flash__summary-value">Import / Export</p>
+                <p class="ops-flash__summary-copy">
+                  Use deck import or export to manage content until the editor is rebuilt.
+                </p>
+              </article>
+            </div>
+          </section>
+        </div>
+      </section>
+    `;
+
+    panel.querySelector('#fc-back-to-decks')?.addEventListener('click', () => {
+      this._flashcardView = 'decks';
+      this._renderFlashcardView();
+    });
+  }
+
+  _bindFlashcardEvents() {
+    // Additional event bindings if needed
   }
 
   start() {}
   reset() { 
     this._activeSection = 'home'; 
-    this._flashcardMode = false; 
+    this._flashcardMode = false;
+    this._flashcardView = 'decks';
+    this._currentDeckId = null;
+    this._currentSession = null;
+    this._isFlipped = false;
     this._unbindKeyboardNav();
     if (this._cliInitTimer) { clearTimeout(this._cliInitTimer); this._cliInitTimer = null; }
     if (this._searchDebounce) { clearTimeout(this._searchDebounce); this._searchDebounce = null; }
@@ -820,10 +1717,12 @@ class ResourceLibrary {
 
 function _renderQuickReview() {
   return `
-    <div style="display: grid; gap: 1.5rem;">
-      <div class="card" style="background: linear-gradient(135deg, var(--color-bg-panel) 0%, var(--color-bg-raised) 100%); border-left: 4px solid var(--color-error);">
-        <h3 style="color: var(--color-error); font-size: var(--text-lg); margin-bottom: 1rem;">🎯 Top Exam Ports (Memorize These!)</h3>
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 0.75rem;">
+    <div class="reslib-quick-stack">
+      <section class="reslib-panel reslib-panel--critical">
+        <h3 class="reslib-panel__title">
+          ${renderTokenIcon('FOCUS', 'reslib-title-icon')}Top Exam Ports (Memorize These)
+        </h3>
+        <div class="reslib-port-grid">
           ${[
             {port:'22', name:'SSH', color:'var(--color-green)'},
             {port:'80', name:'HTTP', color:'var(--color-amber)'},
@@ -832,44 +1731,49 @@ function _renderQuickReview() {
             {port:'67', name:'DHCP', color:'var(--color-error)'},
             {port:'179', name:'BGP', color:'var(--color-switch)'},
           ].map(p => `
-            <div style="background: var(--color-bg-dark); padding: 0.75rem; border-radius: var(--radius-md); text-align: center; border: 1px solid ${p.color}44;">
-              <div style="font-family: var(--font-mono); font-size: var(--text-xl); font-weight: 700; color: ${p.color};">${p.port}</div>
-              <div style="font-size: var(--text-xs); color: var(--color-text-muted);">${p.name}</div>
+            <div class="reslib-port-card" style="--port-color:${p.color}">
+              <div class="reslib-port-card__num">${p.port}</div>
+              <div class="reslib-port-card__name">${p.name}</div>
             </div>
           `).join('')}
         </div>
-      </div>
+      </section>
 
-      <div class="card" style="background: var(--color-bg-panel); border-left: 4px solid var(--color-amber);">
-        <h3 style="color: var(--color-amber); font-size: var(--text-lg); margin-bottom: 1rem;">🧮 Common Subnets</h3>
-        <div style="display: flex; flex-wrap: wrap; gap: 0.75rem;">
+      <section class="reslib-panel reslib-panel--warning">
+        <h3 class="reslib-panel__title">
+          ${renderTokenIcon('SUBNET', 'reslib-title-icon')}Common Subnets
+        </h3>
+        <div class="reslib-chip-row">
           ${[
             {cidr:'/24', hosts:'254', use:'LAN'},
             {cidr:'/25', hosts:'126', use:'Small'},
             {cidr:'/26', hosts:'62', use:'VLAN'},
             {cidr:'/30', hosts:'2', use:'P2P'},
           ].map(s => `
-            <div style="background: var(--color-bg-dark); padding: 0.5rem 0.75rem; border-radius: var(--radius-sm); display: flex; gap: 0.5rem; align-items: center;">
-              <span style="font-family: var(--font-mono); font-weight: 700; color: var(--color-amber);">${s.cidr}</span>
-              <span style="font-size: var(--text-xs); color: var(--color-text-muted);">${s.hosts}</span>
+            <div class="reslib-chip">
+              <span class="reslib-chip__value">${s.cidr}</span>
+              <span class="reslib-chip__meta">${s.hosts}</span>
+              <span class="reslib-chip__label">${s.use}</span>
             </div>
           `).join('')}
         </div>
-      </div>
+      </section>
 
-      <div class="card" style="background: var(--color-bg-panel); border-left: 4px solid var(--color-cyan);">
-        <h3 style="color: var(--color-cyan); font-size: var(--text-lg); margin-bottom: 1rem;">📚 OSI Mnemonics</h3>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-          <div style="background: var(--color-bg-dark); padding: 0.75rem; border-radius: var(--radius-sm);">
-            <div style="font-size: var(--text-xs); color: var(--color-text-muted); margin-bottom: 0.5rem;">Top → Bottom</div>
-            <div style="font-family: var(--font-mono); font-size: var(--text-xs); color: var(--color-cyan);">APSTNDP</div>
+      <section class="reslib-panel reslib-panel--info">
+        <h3 class="reslib-panel__title">
+          ${renderTokenIcon('LEARN', 'reslib-title-icon')}OSI Mnemonics
+        </h3>
+        <div class="reslib-mnemonic-grid">
+          <div class="reslib-mnemonic-card">
+            <div class="reslib-mnemonic-card__label">Top → Bottom</div>
+            <div class="reslib-mnemonic-card__value">APSTNDP</div>
           </div>
-          <div style="background: var(--color-bg-dark); padding: 0.75rem; border-radius: var(--radius-sm);">
-            <div style="font-size: var(--text-xs); color: var(--color-text-muted); margin-bottom: 0.5rem;">Bottom → Top</div>
-            <div style="font-family: var(--font-mono); font-size: var(--text-xs); color: var(--color-amber);">PNDTSPA</div>
+          <div class="reslib-mnemonic-card">
+            <div class="reslib-mnemonic-card__label">Bottom → Top</div>
+            <div class="reslib-mnemonic-card__value reslib-mnemonic-card__value--amber">PNDTSPA</div>
           </div>
         </div>
-      </div>
+      </section>
     </div>
   `;
 }
@@ -881,34 +1785,74 @@ function _renderPortsTable() {
     groupedPorts[category].push([port, proto, service]);
   });
 
+  const categoryOrder = ['critical', 'important', 'networking'];
+
   return `
-    <div>
-      <h2 style="color: var(--color-text-primary); font-size: var(--text-2xl); margin-bottom: 1.5rem;">🔌 CCNA Port Numbers</h2>
-      <div style="display: flex; flex-direction: column; gap: 1rem;">
-        ${Object.entries(groupedPorts).map(([category, ports]) => {
-          const catInfo = PORT_CATEGORIES[category] || PORT_CATEGORIES.networking;
+    <div class="reslib-section">
+      <div class="reslib-section__head">
+        <h2 class="reslib-section__title">${renderTokenIcon('PORT', 'reslib-title-icon')}CCNA Port Matrix</h2>
+        <p class="reslib-section__desc">Grouped by exam priority for faster recall during labs and quizzes.</p>
+      </div>
+
+      <div class="reslib-port-overview-grid">
+        ${categoryOrder.map((category) => {
+          const catInfo = PORT_CATEGORIES[category];
+          const ports = groupedPorts[category] || [];
           return `
-            <div style="background: var(--color-bg-panel); border-radius: var(--radius-lg); overflow: hidden;">
-              <div style="padding: 0.6rem 1rem; background: ${catInfo.color}; color: var(--color-bg-deepest); font-weight: 700; font-size: var(--text-sm);">
-                ${catInfo.name}
+            <article class="reslib-port-overview" style="--group-color:${catInfo.color}">
+              <div class="reslib-port-overview__head">
+                <span class="reslib-port-overview__icon">${renderTokenIcon(catInfo.icon, 'learning-token-icon')}</span>
+                <div>
+                  <div class="reslib-port-overview__title">${catInfo.name}</div>
+                  <div class="reslib-port-overview__desc">${catInfo.desc}</div>
+                </div>
               </div>
-              <div style="overflow-x: auto;">
-                <table style="width: 100%; border-collapse: collapse;">
-                  <tbody>
-                    ${ports.map(([port, proto, service]) => {
-                      const isCritical = PORT_CATEGORIES.critical.ports.includes(port);
-                      return `
-                        <tr style="border-bottom: 1px solid var(--color-border); ${isCritical ? 'background: rgba(255,68,68,0.05);' : ''}">
-                          <td style="padding: 12px 16px; font-family: var(--font-mono); font-weight: 700; font-size: var(--text-lg); color: ${isCritical ? 'var(--color-error)' : 'var(--color-cyan)'}; width: 80px;">${port}</td>
-                          <td style="padding: 12px 16px; font-family: var(--font-mono); font-size: var(--text-xs); color: var(--color-amber); width: 80px;">${proto}</td>
-                          <td style="padding: 12px 16px; color: var(--color-text-primary); font-size: var(--text-base);">${service}</td>
-                        </tr>
-                      `;
-                    }).join('')}
-                  </tbody>
-                </table>
+              <div class="reslib-port-overview__footer">
+                <span class="reslib-port-overview__count">${ports.length}</span>
+                <span class="reslib-port-overview__label">ports</span>
+                <div class="reslib-port-overview__chips">
+                  ${ports.slice(0, 4).map(([port]) => `<span>${port}</span>`).join('')}
+                </div>
               </div>
-            </div>
+            </article>
+          `;
+        }).join('')}
+      </div>
+
+      <div class="reslib-port-cluster-list">
+        ${categoryOrder.map((category, index) => {
+          const catInfo = PORT_CATEGORIES[category];
+          const ports = groupedPorts[category] || [];
+          return `
+            <section class="reslib-port-cluster" style="--group-color:${catInfo.color}">
+              <div class="reslib-port-cluster__head">
+                <div class="reslib-port-cluster__identity">
+                  <span class="reslib-port-cluster__eyebrow">Category 0${index + 1}</span>
+                  <h3 class="reslib-port-cluster__title">
+                    <span class="reslib-port-cluster__icon">${renderTokenIcon(catInfo.icon, 'learning-token-icon')}</span>
+                    ${catInfo.name}
+                  </h3>
+                  <p class="reslib-port-cluster__desc">${catInfo.desc}</p>
+                </div>
+                <div class="reslib-port-cluster__count">
+                  <strong>${ports.length}</strong>
+                  <span>entries</span>
+                </div>
+              </div>
+
+              <div class="reslib-port-entry-grid">
+                ${ports.map(([port, proto, service]) => `
+                  <article class="reslib-port-entry">
+                    <div class="reslib-port-entry__top">
+                      <span class="reslib-port-entry__num">${port}</span>
+                      <span class="reslib-port-entry__proto">${proto}</span>
+                    </div>
+                    <div class="reslib-port-entry__service">${service}</div>
+                    <div class="reslib-port-entry__tag">${catInfo.name}</div>
+                  </article>
+                `).join('')}
+              </div>
+            </section>
           `;
         }).join('')}
       </div>
@@ -916,75 +1860,145 @@ function _renderPortsTable() {
   `;
 }
 
+function _getProtocolExamTip(protocol) {
+  const protocolTips = {
+    ARP: 'ARP requests are broadcast only inside the local VLAN/subnet.',
+    ICMP: 'ICMP is control-plane signaling; it does not carry user application data.',
+    DHCP: 'For DORA, remember client uses UDP 68 and server uses UDP 67.',
+    DNS: 'DNS is usually UDP 53; TCP 53 appears for zone transfers or large responses.',
+    TCP: 'SYN, SYN-ACK, ACK is required before reliable data transfer starts.',
+    UDP: 'Use UDP when latency matters and occasional loss is acceptable.',
+    OSPF: 'OSPF has administrative distance 110 and backbone area is Area 0.',
+    BGP: 'BGP runs over TCP 179 and is path-vector, not distance-vector.',
+    EIGRP: 'EIGRP AD is 90 (internal) and 170 (external).',
+    RIP: 'RIP metric is hop count: 15 reachable, 16 unreachable.',
+    STP: 'STP prevents Layer 2 loops by blocking redundant paths.',
+    VLAN: '802.1Q adds a 4-byte tag; native VLAN frames are untagged.',
+    NAT: 'PAT is many-to-one NAT using source ports.',
+    ACL: 'Standard ACL filters by source only; extended ACL can match ports/protocols.',
+    HSRP: 'HSRP picks highest priority as active; hello/hold timers are key exam facts.',
+  };
+
+  return protocolTips[protocol.name] || 'Focus on layer, purpose, and default port/timers for quick exam recall.';
+}
+
 function _renderProtocols() {
+  const categoryColorMap = {
+    addressing: 'var(--color-cyan)',
+    diagnostics: 'var(--color-info)',
+    management: 'var(--color-amber)',
+    application: 'var(--color-cyan-dim)',
+    transport: 'var(--color-green)',
+    routing: 'var(--color-info)',
+    switching: 'var(--color-green)',
+    security: 'var(--color-error)',
+    redundancy: 'var(--color-amber)',
+  };
+
   return `
-    <div>
-      <h2 style="color: var(--color-text-primary); font-size: var(--text-2xl); margin-bottom: 1.5rem;">📡 Key Protocols</h2>
-      <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-        ${PROTOCOLS.map((p, i) => `
-          <div style="
-            background: var(--color-bg-panel);
-            border: 1px solid var(--color-border);
-            border-radius: var(--radius-md);
-            padding: 1rem;
-            border-left: 4px solid var(--color-cyan);
-          ">
-            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
-              <div>
-                <span style="font-family: var(--font-mono); font-weight: 700; font-size: var(--text-lg); color: var(--color-cyan);">${p.name}</span>
-                <span style="background: var(--color-bg-dark); padding: 2px 8px; border-radius: 4px; font-size: var(--text-xs); color: var(--color-amber); margin-left: 0.5rem;">${p.layer}</span>
-              </div>
-              <span style="font-size: var(--text-xs); color: var(--color-text-muted);">#${i+1}</span>
+    <div class="reslib-section">
+      <div class="reslib-section__head">
+        <h2 class="reslib-section__title">${renderTokenIcon('ARP', 'reslib-title-icon')}Protocol Cheatsheet</h2>
+        <p class="reslib-section__desc">Quick scan first. Click any card to inspect detailed exam answer + tip.</p>
+      </div>
+
+      <div class="reslib-protocol-cheatsheet-meta">
+        <span class="reslib-protocol-cheatsheet-meta__count">${PROTOCOLS.length} protocol cards</span>
+        <span class="reslib-protocol-cheatsheet-meta__hint">Click card to inspect details</span>
+      </div>
+
+      <div class="reslib-protocol-cheatsheet-grid">
+        ${PROTOCOLS.map((protocol, index) => `
+          <article
+            class="reslib-port-entry reslib-protocol-entry reslib-protocol-mini"
+            tabindex="0"
+            role="button"
+            aria-expanded="false"
+            aria-label="Inspect ${escapeHtml(protocol.name)} details"
+            style="--group-color: ${categoryColorMap[protocol.category] || 'var(--color-cyan)'}"
+            data-protocol-id="${index + 1}"
+          >
+            <div class="reslib-port-entry__top">
+              <span class="reslib-port-entry__num">${escapeHtml(protocol.name)}</span>
+              <span class="reslib-port-entry__proto">${escapeHtml(protocol.layer)}</span>
             </div>
-            <div style="font-size: var(--text-xs); color: var(--color-text-muted); margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.05em;">${p.full}</div>
-            <p style="font-size: var(--text-sm); color: var(--color-text-secondary); line-height: 1.6; margin: 0;">${p.purpose}</p>
-          </div>
+            <div class="reslib-protocol-entry__full">${escapeHtml(protocol.full)}</div>
+            <div class="reslib-port-entry__service reslib-protocol-mini__prompt">${escapeHtml(protocol.question)}</div>
+            <div class="reslib-protocol-entry__inspect">Click to inspect details</div>
+
+            <div class="reslib-protocol-mini__detail">
+              <div class="reslib-protocol-mini__block">
+                <div class="reslib-protocol-mini__label">Exam Answer</div>
+                <div class="reslib-protocol-entry__answer">${escapeHtml(protocol.answer)}</div>
+              </div>
+              <div class="reslib-protocol-mini__block reslib-protocol-mini__block--tip">
+                <div class="reslib-protocol-mini__label">Quick Tip</div>
+                <div class="reslib-protocol-mini__tip">${escapeHtml(_getProtocolExamTip(protocol))}</div>
+              </div>
+            </div>
+
+            <div class="reslib-port-entry__tag">#${index + 1}</div>
+          </article>
         `).join('')}
       </div>
     </div>
   `;
 }
 
-function _renderCLICommands() {
-  const categoryNames = CLI_COMMANDS.map(c => c.category);
+function _renderCLICommands(cliIndex = 0) {
+  const safeIndex = Number.isInteger(cliIndex) && cliIndex >= 0 && cliIndex < CLI_COMMANDS.length ? cliIndex : 0;
+  const currentCategory = CLI_COMMANDS[safeIndex] || CLI_COMMANDS[0];
   
   return `
-    <div>
-      <h2 style="color: var(--color-text-primary); font-size: var(--text-2xl); margin-bottom: 1rem;">💻 Essential CLI Commands</h2>
-      <p style="color: var(--color-text-muted); margin-bottom: 1rem;">Click ◀ ▶ or use arrow keys to browse categories</p>
-
-      <div style="background: #1a1a2e; border-radius: var(--radius-lg); overflow: hidden; border: 1px solid #333;">
-        <div style="background: #0f0f1a; padding: 0.75rem 1rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333;">
-          <div style="display: flex; gap: 0.5rem; align-items: center;">
-            <div style="width: 12px; height: 12px; border-radius: 50%; background: #ff5f56;"></div>
-            <div style="width: 12px; height: 12px; border-radius: 50%; background: #ffbd2e;"></div>
-            <div style="width: 12px; height: 12px; border-radius: 50%; background: #27c93f;"></div>
-          </div>
-          <div style="color: #888; font-size: var(--text-xs); font-family: var(--font-mono);">Cisco IOS Terminal</div>
-          <div style="width: 70px;"></div>
-        </div>
-        
-        <div style="padding: 1rem; border-bottom: 1px solid #333; display: flex; justify-content: center; align-items: center; gap: 1rem;">
-          <button id="cli-prev" style="background: #00ff8822; border: 1px solid #00ff88; color: #00ff88; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: var(--text-lg);">◀</button>
-          <span id="cli-category-name" style="color: #00ff88; font-family: var(--font-mono); font-weight: 700; min-width: 200px; text-align: center;">${categoryNames[0]}</span>
-          <button id="cli-next" style="background: #00ff8822; border: 1px solid #00ff88; color: #00ff88; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: var(--text-lg);">▶</button>
-        </div>
-
-        <div id="cli-commands" style="padding: 1rem; font-family: var(--font-mono); font-size: var(--text-sm); color: #00ff88; line-height: 2; overflow-x: auto; min-height: 200px;">
-        </div>
+    <div class="reslib-section">
+      <div class="reslib-section__head">
+        <h2 class="reslib-section__title">${renderTokenIcon('CLI', 'reslib-title-icon')}Essential CLI Commands</h2>
+        <p class="reslib-section__desc">Use arrows or dots to cycle command categories. Keyboard left/right also works.</p>
       </div>
 
-      <div style="margin-top: 1rem; display: flex; justify-content: center; gap: 0.5rem; flex-wrap: wrap;" id="cli-dots">
+      <div class="reslib-cli-shell">
+        <div class="reslib-cli-shell__top">
+          <div class="reslib-cli-shell__lights" aria-hidden="true">
+            <span class="reslib-cli-shell__light is-red"></span>
+            <span class="reslib-cli-shell__light is-amber"></span>
+            <span class="reslib-cli-shell__light is-green"></span>
+          </div>
+          <div class="reslib-cli-shell__terminal-title">
+            <span class="reslib-cli-shell__terminal-icon">${renderTokenIcon(currentCategory.icon || 'CLI', 'learning-token-icon')}</span>
+            <span class="reslib-cli-shell__terminal-meta">
+              <span class="reslib-cli-shell__terminal-label">ccna-reference.session</span>
+              <span id="cli-shell-context" class="reslib-cli-shell__terminal-context">${currentCategory.mode || 'CLI mode'} • ${currentCategory.prompt || 'R1#'}</span>
+            </span>
+          </div>
+          <span class="reslib-cli-shell__status">
+            <span class="reslib-cli-shell__status-dot"></span>
+            Read only
+          </span>
+        </div>
+        
+        <div class="reslib-cli-nav">
+          <button id="cli-prev" class="reslib-cli-nav__btn" aria-label="Previous category">${renderTokenIcon('UP', 'reslib-cli-nav__arrow is-left')}</button>
+          <span class="reslib-cli-nav__center">
+            <span id="cli-category-name" class="reslib-cli-nav__name">${renderTokenIcon(currentCategory.icon || 'CLI', 'reslib-cli-category-icon')}${escapeHtml(currentCategory.category)}</span>
+            <span id="cli-category-summary" class="reslib-cli-nav__summary">${escapeHtml(currentCategory.summary || 'Cisco IOS command references')}</span>
+          </span>
+          <button id="cli-next" class="reslib-cli-nav__btn" aria-label="Next category">${renderTokenIcon('UP', 'reslib-cli-nav__arrow is-right')}</button>
+        </div>
+
+        <div id="cli-commands" class="reslib-cli-table"></div>
+      </div>
+
+      <div class="reslib-cli-dots" id="cli-dots">
         ${CLI_COMMANDS.map((_, i) => 
-          `<span class="cli-dot" data-index="${i}" style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: ${i === 0 ? '#00ff88' : '#444'}; margin: 0 4px; cursor: pointer;"></span>`
+          `<span class="cli-dot ${i === safeIndex ? 'is-active' : ''}" data-index="${i}"></span>`
         ).join('')}
       </div>
 
-      <div style="margin-top: 1rem; text-align: center; color: var(--color-text-muted); font-size: var(--text-xs);">
+      <div class="reslib-cli-hint">
         ← → Arrow keys to navigate • Click dots to jump to category
       </div>
 
-      <div style="margin-top: 1.5rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+      <div class="reslib-cli-mode-grid">
         ${[
           {mode:'User EXEC', prompt:'>', color:'var(--color-amber)'},
           {mode:'Privileged EXEC', prompt:'#', color:'var(--color-cyan)'},
@@ -992,9 +2006,9 @@ function _renderCLICommands() {
           {mode:'Interface', prompt:'(config-if)#', color:'var(--color-error)'},
           {mode:'Router', prompt:'(config-router)#', color:'var(--color-info)'},
         ].map(m => `
-          <div style="background: var(--color-bg-panel); padding: 0.75rem; border-radius: var(--radius-sm); border-left: 3px solid ${m.color};">
-            <div style="font-size: var(--text-xs); color: var(--color-text-muted);">${m.mode}</div>
-            <div style="font-family: var(--font-mono); color: ${m.color};">Router${m.prompt}</div>
+          <div class="reslib-cli-mode-chip" style="--mode-color:${m.color}">
+            <div class="reslib-cli-mode-chip__mode">${m.mode}</div>
+            <div class="reslib-cli-mode-chip__prompt">Router${m.prompt}</div>
           </div>
         `).join('')}
       </div>
@@ -1004,39 +2018,35 @@ function _renderCLICommands() {
 
 function _renderOSIRef() {
   return `
-    <div>
-      <h2 style="color: var(--color-text-primary); font-size: var(--text-2xl); margin-bottom: 1.5rem;">📚 OSI Model</h2>
-      
-      <div style="background: var(--color-bg-panel); border-radius: var(--radius-lg); overflow: hidden; margin-bottom: 1.5rem;">
-        <div style="display: flex; flex-direction: column; gap: 0;">
+    <div class="reslib-section">
+      <div class="reslib-section__head">
+        <h2 class="reslib-section__title">${renderTokenIcon('LEARN', 'reslib-title-icon')}OSI Model</h2>
+        <p class="reslib-section__desc">Layer flow with PDU mapping and protocol examples.</p>
+      </div>
+      <div class="reslib-osi-layers">
+        <div class="reslib-osi-layers__list">
           ${OSI_LAYERS.map((l, i) => `
-            <div style="
-              display: grid; grid-template-columns: 50px 1fr 90px 1fr;
-              gap: 1rem; align-items: center;
-              padding: 0.75rem 1rem;
-              background: ${l.color}15;
-              border-left: 4px solid ${l.color};
-            ">
-              <span style="font-family: var(--font-mono); font-weight: 700; color: ${l.color}; font-size: var(--text-lg); text-align: center;">L${l.n}</span>
-              <span style="font-weight: 700; color: var(--color-text-primary);">${l.name}</span>
-              <span style="font-family: var(--font-mono); font-size: var(--text-xs); color: var(--color-amber);">${l.pdu}</span>
-              <span style="font-size: var(--text-xs); color: var(--color-text-muted);">${l.protocols}</span>
+            <div class="reslib-osi-row" style="--layer-color:${l.color}">
+              <span class="reslib-osi-row__level">L${l.n}</span>
+              <span class="reslib-osi-row__name">${l.name}</span>
+              <span class="reslib-osi-row__pdu">${l.pdu}</span>
+              <span class="reslib-osi-row__protocols">${l.protocols}</span>
             </div>
-            ${i < 6 ? '<div style="text-align: center; color: var(--color-text-muted); font-size: 10px; padding: 2px;">↓</div>' : ''}
+            ${i < 6 ? '<div class="reslib-osi-row__arrow">↓</div>' : ''}
           `).join('')}
         </div>
       </div>
 
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-        <div class="card" style="background: var(--color-cyan-glow); border: 2px solid var(--color-cyan);">
-          <div style="font-size: var(--text-xs); color: var(--color-cyan); text-transform: uppercase; margin-bottom: 0.5rem;">Mnemonic (Top → Bottom)</div>
-          <div style="font-family: var(--font-mono); font-size: var(--text-base); color: var(--color-text-primary);">
+      <div class="reslib-mnemonic-grid">
+        <div class="reslib-mnemonic-card is-cyan">
+          <div class="reslib-mnemonic-card__label">Mnemonic (Top → Bottom)</div>
+          <div class="reslib-mnemonic-card__sentence">
             <strong style="color: var(--color-cyan);">A</strong>ll <strong style="color: var(--color-cyan);">P</strong>eople <strong style="color: var(--color-cyan);">S</strong>eem <strong style="color: var(--color-cyan);">T</strong>o <strong style="color: var(--color-cyan);">N</strong>eed <strong style="color: var(--color-cyan);">D</strong>ata <strong style="color: var(--color-cyan);">P</strong>rocessing
           </div>
         </div>
-        <div class="card" style="background: rgba(255,184,0,0.1); border: 2px solid var(--color-amber);">
-          <div style="font-size: var(--text-xs); color: var(--color-amber); text-transform: uppercase; margin-bottom: 0.5rem;">Mnemonic (Bottom → Top)</div>
-          <div style="font-family: var(--font-mono); font-size: var(--text-base); color: var(--color-text-primary);">
+        <div class="reslib-mnemonic-card is-amber">
+          <div class="reslib-mnemonic-card__label">Mnemonic (Bottom → Top)</div>
+          <div class="reslib-mnemonic-card__sentence">
             <strong style="color: var(--color-amber);">P</strong>lease <strong style="color: var(--color-amber);">D</strong>o <strong style="color: var(--color-amber);">N</strong>ot <strong style="color: var(--color-amber);">T</strong>hrow <strong style="color: var(--color-amber);">S</strong>ausage <strong style="color: var(--color-amber);">P</strong>izza <strong style="color: var(--color-amber);">A</strong>way
           </div>
         </div>
@@ -1047,21 +2057,24 @@ function _renderOSIRef() {
 
 function _renderSubnetRef() {
   return `
-    <div>
-      <h2 style="color: var(--color-text-primary); font-size: var(--text-2xl); margin-bottom: 1.5rem;">🧮 Subnetting Quick Reference</h2>
-      
-      <div style="background: var(--color-bg-panel); border-radius: var(--radius-lg); overflow: hidden; margin-bottom: 1.5rem;">
-        <div style="padding: 1rem; background: var(--color-bg-raised); border-bottom: 1px solid var(--color-border);">
-          <h3 style="color: var(--color-cyan); font-size: var(--text-base);">Binary Breakdown</h3>
+    <div class="reslib-section">
+      <div class="reslib-section__head">
+        <h2 class="reslib-section__title">${renderTokenIcon('SUBNET', 'reslib-title-icon')}Subnetting Quick Reference</h2>
+        <p class="reslib-section__desc">Mask, host count, and binary view for common CIDR ranges.</p>
+      </div>
+
+      <div class="reslib-subnet-table-shell">
+        <div class="reslib-subnet-table-shell__head">
+          <h3>Binary Breakdown</h3>
         </div>
-        <div style="overflow-x: auto;">
-          <table style="width: 100%; border-collapse: collapse;">
+        <div class="reslib-table-wrap">
+          <table class="reslib-subnet-table">
             <thead>
-              <tr style="background: var(--color-bg-dark);">
-                <th style="padding: 10px; text-align: left; color: var(--color-text-muted); font-size: var(--text-xs);">CIDR</th>
-                <th style="padding: 10px; text-align: left; color: var(--color-text-muted); font-size: var(--text-xs);">Mask</th>
-                <th style="padding: 10px; text-align: left; color: var(--color-text-muted); font-size: var(--text-xs);">Hosts</th>
-                <th style="padding: 10px; text-align: left; color: var(--color-text-muted); font-size: var(--text-xs);">Binary</th>
+              <tr>
+                <th>CIDR</th>
+                <th>Mask</th>
+                <th>Hosts</th>
+                <th>Binary</th>
               </tr>
             </thead>
             <tbody>
@@ -1073,11 +2086,11 @@ function _renderSubnetRef() {
                 ['/28','255.255.255.240','14','11111111.11111111.11111111.11110000'],
                 ['/30','255.255.255.252','2','11111111.11111111.11111111.11111100'],
               ].map(([cidr, mask, hosts, binary]) => `
-                <tr style="border-bottom: 1px solid var(--color-border);">
-                  <td style="padding: 10px; font-family: var(--font-mono); font-weight: 700; color: var(--color-amber);">${cidr}</td>
-                  <td style="padding: 10px; font-family: var(--font-mono); color: var(--color-text-secondary);">${mask}</td>
-                  <td style="padding: 10px; font-family: var(--font-mono); color: var(--color-text-primary);">${hosts}</td>
-                  <td style="padding: 10px; font-family: var(--font-mono); font-size: var(--text-xs); color: var(--color-text-muted);">${binary}</td>
+                <tr>
+                  <td class="reslib-subnet-table__cidr">${cidr}</td>
+                  <td>${mask}</td>
+                  <td>${hosts}</td>
+                  <td class="reslib-subnet-table__binary">${binary}</td>
                 </tr>
               `).join('')}
             </tbody>
@@ -1085,21 +2098,18 @@ function _renderSubnetRef() {
         </div>
       </div>
 
-      <div class="card" style="background: var(--color-bg-panel);">
-        <h3 style="color: var(--color-text-primary); font-size: var(--text-base); margin-bottom: 1rem;">Quick Formulas</h3>
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.75rem;">
-          <div style="background: var(--color-bg-dark); padding: 0.75rem; border-radius: var(--radius-sm);">
-            <div style="color: var(--color-cyan); font-weight: 700;">2^n - 2</div>
-            <div style="font-size: var(--text-xs); color: var(--color-text-muted);">Usable hosts</div>
-          </div>
-          <div style="background: var(--color-bg-dark); padding: 0.75rem; border-radius: var(--radius-sm);">
-            <div style="color: var(--color-cyan); font-weight: 700;">256 - block</div>
-            <div style="font-size: var(--text-xs); color: var(--color-text-muted);">Subnet mask</div>
-          </div>
-          <div style="background: var(--color-bg-dark); padding: 0.75rem; border-radius: var(--radius-sm);">
-            <div style="color: var(--color-cyan); font-weight: 700;">Block size</div>
-            <div style="font-size: var(--text-xs); color: var(--color-text-muted);">256 - mask</div>
-          </div>
+      <div class="reslib-formula-grid">
+        <div class="reslib-formula-card">
+          <div class="reslib-formula-card__value">2^n - 2</div>
+          <div class="reslib-formula-card__label">Usable hosts</div>
+        </div>
+        <div class="reslib-formula-card">
+          <div class="reslib-formula-card__value">256 - block</div>
+          <div class="reslib-formula-card__label">Subnet mask step</div>
+        </div>
+        <div class="reslib-formula-card">
+          <div class="reslib-formula-card__value">256 - mask</div>
+          <div class="reslib-formula-card__label">Block size</div>
         </div>
       </div>
     </div>
@@ -1107,27 +2117,82 @@ function _renderSubnetRef() {
 }
 
 function _renderGlossary() {
+  const groupedTerms = {};
+  GLOSSARY_TERMS.forEach((entry) => {
+    if (!groupedTerms[entry.group]) groupedTerms[entry.group] = [];
+    groupedTerms[entry.group].push(entry);
+  });
+
+  const groupOrder = ['core', 'routing', 'operations'];
+
   return `
-    <div>
-      <h2 style="color: var(--color-text-primary); font-size: var(--text-2xl); margin-bottom: 1.5rem;">📖 CCNA Glossary</h2>
-      <p style="color: var(--color-text-muted); margin-bottom: 1.5rem;">${GLOSSARY_TERMS.length} essential terms.</p>
-      
-      <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-        ${GLOSSARY_TERMS.map(([term, def], i) => `
-          <div style="
-            padding: 1rem;
-            background: var(--color-bg-panel);
-            border: 1px solid var(--color-border);
-            border-radius: var(--radius-md);
-            border-left: 3px solid var(--color-cyan);
-          ">
-            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
-              <span style="font-family: var(--font-display); font-weight: 700; color: var(--color-cyan); font-size: var(--text-base);">${term}</span>
-              <span style="font-size: var(--text-xs); color: var(--color-text-muted);">#${i+1}</span>
-            </div>
-            <p style="font-size: var(--text-sm); color: var(--color-text-secondary); line-height: 1.6; margin: 0;">${def}</p>
-          </div>
-        `).join('')}
+    <div class="reslib-section">
+      <div class="reslib-section__head">
+        <h2 class="reslib-section__title">${renderTokenIcon('DOCS', 'reslib-title-icon')}CCNA Glossary</h2>
+        <p class="reslib-section__desc">${GLOSSARY_TERMS.length} essential terms, optimized for quick lookup.</p>
+      </div>
+
+      <div class="reslib-glossary-overview-grid">
+        ${groupOrder.map((groupKey) => {
+          const groupInfo = GLOSSARY_GROUPS[groupKey];
+          const terms = groupedTerms[groupKey] || [];
+          return `
+            <article class="reslib-glossary-overview" style="--group-color:${groupInfo.color}">
+              <div class="reslib-glossary-overview__head">
+                <span class="reslib-glossary-overview__icon">${renderTokenIcon(groupInfo.icon, 'learning-token-icon')}</span>
+                <div>
+                  <div class="reslib-glossary-overview__title">${groupInfo.name}</div>
+                  <div class="reslib-glossary-overview__desc">${groupInfo.desc}</div>
+                </div>
+              </div>
+              <div class="reslib-glossary-overview__footer">
+                <span class="reslib-glossary-overview__count">${terms.length}</span>
+                <span class="reslib-glossary-overview__label">terms</span>
+                <div class="reslib-glossary-overview__chips">
+                  ${terms.slice(0, 3).map(({ term }) => `<span>${term}</span>`).join('')}
+                </div>
+              </div>
+            </article>
+          `;
+        }).join('')}
+      </div>
+
+      <div class="reslib-glossary-cluster-list">
+        ${groupOrder.map((groupKey, groupIndex) => {
+          const groupInfo = GLOSSARY_GROUPS[groupKey];
+          const terms = groupedTerms[groupKey] || [];
+          return `
+            <section class="reslib-glossary-cluster" style="--group-color:${groupInfo.color}">
+              <div class="reslib-glossary-cluster__head">
+                <div class="reslib-glossary-cluster__identity">
+                  <span class="reslib-glossary-cluster__eyebrow">Cluster 0${groupIndex + 1}</span>
+                  <h3 class="reslib-glossary-cluster__title">
+                    <span class="reslib-glossary-cluster__icon">${renderTokenIcon(groupInfo.icon, 'learning-token-icon')}</span>
+                    ${groupInfo.name}
+                  </h3>
+                  <p class="reslib-glossary-cluster__desc">${groupInfo.desc}</p>
+                </div>
+                <div class="reslib-glossary-cluster__count">
+                  <strong>${terms.length}</strong>
+                  <span>entries</span>
+                </div>
+              </div>
+
+              <div class="reslib-glossary-card-grid">
+                ${terms.map(({ term, def }, termIndex) => `
+                  <article class="reslib-glossary-card">
+                    <div class="reslib-glossary-card__head">
+                      <h4 class="reslib-glossary-card__term">${term}</h4>
+                      <span class="reslib-glossary-card__idx">#${termIndex + 1}</span>
+                    </div>
+                    <p class="reslib-glossary-card__def">${def}</p>
+                    <span class="reslib-glossary-card__tag">${groupInfo.name}</span>
+                  </article>
+                `).join('')}
+              </div>
+            </section>
+          `;
+        }).join('')}
       </div>
     </div>
   `;

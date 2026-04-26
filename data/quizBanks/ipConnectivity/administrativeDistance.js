@@ -1,0 +1,16 @@
+import { q } from './helpers.js';
+
+const administrativeDistanceBank = [
+  q('d3-3-3-q1', 'What does administrative distance measure?', ['Path speed inside one routing protocol', 'Trust in the source of a route', 'The number of routers in the path', 'The packet loss rate on the link'], 1, 'easy', 'Administrative distance compares how trustworthy the router considers the source of the route.'),
+  q('d3-3-3-q2', 'Which route source is preferred when two routes to the same prefix compete and all else is equal?', ['The route with the higher AD', 'The route with the lower AD', 'The route learned last', 'The route with the longer interface description'], 1, 'easy', 'Lower administrative distance means the route source is more trusted.'),
+  q('d3-3-3-q3', 'Which default AD belongs to OSPF?', ['90', '100', '110', '120'], 2, 'easy', 'OSPF uses a default administrative distance of 110.'),
+  q('d3-3-3-q4', 'Which route source normally has an AD of 0?', ['RIP', 'OSPF', 'Connected', 'Static'], 2, 'easy', 'Connected routes are the most directly trusted and use AD 0.'),
+  q('d3-3-3-q5', 'Which route source normally has an AD of 1?', ['Static', 'RIP', 'eBGP', 'EIGRP external'], 0, 'easy', 'A standard static route uses administrative distance 1.'),
+  q('d3-3-3-q6', 'What is the purpose of a floating static route?', ['To provide a backup route by using a higher AD than the primary route', 'To advertise routes into OSPF area 0', 'To replace a connected route with a dynamic route', 'To eliminate longest prefix match'], 0, 'medium', 'A floating static route is configured with a higher AD so it stays inactive until the preferred route disappears.'),
+  q('d3-3-3-q7', 'When is AD compared during route selection?', ['Before longest prefix match', 'Only after the competing routes match the same prefix length', 'Before interface status is checked', 'Only for default routes'], 1, 'medium', 'Administrative distance matters only after longest prefix match leaves multiple equally specific candidates.'),
+  q('d3-3-3-q8', 'How is AD different from a metric?', ['AD compares route sources, while a metric compares paths inside a routing protocol', 'AD measures link bandwidth, while metric measures trust', 'AD is used only by IPv6, while metric is used only by IPv4', 'There is no practical difference'], 0, 'medium', 'Administrative distance ranks route sources, whereas metrics rank paths within the same routing method.'),
+  q('d3-3-3-q9', 'A router learns the same prefix from OSPF and RIP. Which route will be installed by default?', ['RIP, because 120 is lower than 110', 'OSPF, because 110 is lower than 120', 'Both will always load balance', 'Neither until a static route is added'], 1, 'medium', 'OSPF wins because its AD of 110 is lower than RIP’s AD of 120.'),
+  q('d3-3-3-q10', 'Which statement about eBGP in basic AD comparisons is correct?', ['Its default AD is higher than RIP', 'Its default AD is lower than OSPF', 'Its default AD matches connected routes', 'It cannot compete with static routes'], 1, 'hard', 'eBGP uses a default AD of 20, which is lower than OSPF and therefore more trusted than OSPF by default for identical prefixes.'),
+];
+
+export default administrativeDistanceBank;

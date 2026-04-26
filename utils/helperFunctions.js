@@ -184,6 +184,50 @@ export function escapeHtml(str) {
 }
 
 /**
+ * Replace CSS custom properties in injected stylesheet strings with
+ * static literal values. Some modules inject styles at runtime where
+ * var(--token) resolution is unreliable in this project setup.
+ *
+ * @param {string} cssText
+ * @returns {string}
+ */
+export function resolveInjectedCssTokens(cssText) {
+  const TOKENS = {
+    '--color-bg-deepest': '#080d14',
+    '--color-bg-dark': '#0d1520',
+    '--color-bg-medium': '#111d2e',
+    '--color-bg-panel': '#152033',
+    '--color-bg-raised': '#1a2840',
+    '--color-bg-surface': '#1e3050',
+    '--color-cyan': '#00d4ff',
+    '--color-cyan-glow': 'rgba(0, 212, 255, 0.15)',
+    '--color-amber': '#ffb800',
+    '--color-success': '#00e676',
+    '--color-warning': '#ffb800',
+    '--color-error': '#ff4444',
+    '--color-text-primary': '#e8f4fd',
+    '--color-text-secondary': '#7fa8c9',
+    '--color-text-muted': '#4a6d8a',
+    '--color-border': 'rgba(0, 212, 255, 0.12)',
+    '--font-display': "'Space Grotesk', sans-serif",
+    '--font-body': "'Instrument Sans', sans-serif",
+    '--font-mono': "'JetBrains Mono', monospace",
+    '--text-xs': '0.6875rem',
+    '--text-sm': '0.8125rem',
+    '--text-base': '0.9375rem',
+    '--text-md': '1.0625rem',
+    '--radius-xs': '3px',
+    '--radius-sm': '6px',
+    '--radius-md': '10px',
+    '--radius-lg': '16px',
+    '--transition-fast': '150ms cubic-bezier(0.4, 0, 0.2, 1)',
+    '--transition-base': '250ms cubic-bezier(0.4, 0, 0.2, 1)',
+    '--shadow-glow': '0 0 40px rgba(0, 212, 255, 0.3)',
+  };
+  return cssText.replace(/var\((--[a-zA-Z0-9-]+)\)/g, (match, token) => TOKENS[token] || match);
+}
+
+/**
  * Add a CSS class to an element for a specified duration,
  * then remove it. Used for trigger-once animations.
  * @param {Element} el
@@ -207,13 +251,13 @@ export function showToast(message, type = 'info', duration = 3000) {
   const toastRoot = document.getElementById('toast-root');
   if (!toastRoot) return;
 
-  const icons = { info: 'ℹ', success: '✓', error: '✕', warning: '⚠' };
+  const icons = { info: 'ℹ️', success: '✅', error: '❌', warning: '⚠️' };
 
   const toast = createElement('div', { className: `toast ${type} toast-enter` });
   toast.innerHTML = `
-    <span style="font-size:1rem">${icons[type] || 'ℹ'}</span>
+    <span style="font-size:1rem">${icons[type] || 'INFO'}</span>
     <span style="flex:1; font-size:0.875rem">${escapeHtml(message)}</span>
-    <button class="toast-close" style="opacity:0.5; cursor:pointer; background:none; border:none; color:inherit; font-size:1rem;">✕</button>
+    <button class="toast-close" style="opacity:0.5; cursor:pointer; background:none; border:none; color:inherit; font-size:1rem;">X</button>
   `;
 
   const dismiss = () => {

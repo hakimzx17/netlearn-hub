@@ -23,6 +23,8 @@ import { stateManager} from './stateManager.js';
 import { router }      from './router.js';
 import { navbar }      from '../components/navbar.js';
 import { modalSystem } from '../components/modalSystem.js';
+import { progressEngine } from './progressEngine.js';
+import { gamificationUI } from '../components/gamificationUI.js';
 
 /**
  * Main bootstrap function.
@@ -30,13 +32,17 @@ import { modalSystem } from '../components/modalSystem.js';
  */
 async function bootstrap() {
   try {
-    console.info('[NetLearn] Starting bootstrap...');
+    console.info('[NetlearnHub] Starting bootstrap...');
 
     // ── Step 1: Apply persisted theme ────────────────
     const savedTheme = stateManager.getState('theme');
     document.documentElement.setAttribute('data-theme', savedTheme || 'dark');
 
-    // ── Step 2: Initialize Modal System ──────────────
+    // ── Step 2: Initialize Progress Engine ────────────
+    progressEngine.init();
+    gamificationUI.init();
+
+    // ── Step 3: Initialize Modal System ──────────────
     // Must be ready before any module renders (modules may open modals)
     modalSystem.init();
 
@@ -54,13 +60,13 @@ async function bootstrap() {
     // ── Step 6: Register global keyboard shortcuts ────
     _bindGlobalShortcuts();
 
-    console.info('[NetLearn] Bootstrap complete ✓');
+    console.info('[NetlearnHub] Bootstrap complete OK');
 
     // Emit app-ready event — any listener can now safely call router APIs
     eventBus.emit('app:ready', { timestamp: Date.now() });
 
   } catch (err) {
-    console.error('[NetLearn] Bootstrap failed:', err);
+    console.error('[NetlearnHub] Bootstrap failed:', err);
     _renderBootstrapError(err);
   }
 }
@@ -79,9 +85,11 @@ function _bindGlobalStateHandlers() {
   stateManager.subscribe('currentRoute', (route) => {
     const titleMap = {
       '/':                  'Dashboard',
+      '/paths':             'CCNA Domains',
+      '/simulations':       'Simulations Hub',
       '/ipv4-header':       'IPv4 Header Game',
       '/ethernet-frame':    'Ethernet Frame Game',
-      '/osi-tcpip':         'OSI / TCP-IP Visualizer',
+      '/osi-tcpip':         'OSI / TCP-IP Practice Lab',
       '/ip-classes':        'IP Address Classes',
       '/packet-journey':    'Packet Journey Simulator',
       '/ttl-simulation':    'TTL Router Simulation',
@@ -93,9 +101,18 @@ function _bindGlobalStateHandlers() {
       '/subnet-calculator': 'Subnet Calculator',
       '/exam':              'CCNA Exam Mode',
       '/resources':         'Resource Library',
+      '/flashcards':        'Flashcard Mode',
     };
-    const name = titleMap[route] || 'NetLearn';
-    document.title = `${name} — NetLearn`;
+    // Support path-based routes
+    let name = titleMap[route];
+    if (!name && route.startsWith('/paths/')) {
+      const parts = route.split('/').filter(Boolean);
+      name = parts.length === 3 ? 'CCNA Topic' : parts.length === 2 ? 'CCNA Domain' : 'CCNA Domains';
+    }
+    if (!name && route.startsWith('/exam/')) {
+      name = 'CCNA Exam Mode';
+    }
+    document.title = `${name || 'NetlearnHub'} — NetlearnHub`;
   });
 
   // Sidebar toggle state → CSS class on app-shell
@@ -147,7 +164,7 @@ function _renderBootstrapError(err) {
       font-family: 'JetBrains Mono', monospace; padding: 2rem; text-align:center;
     ">
       <div>
-        <div style="font-size:3rem; margin-bottom:1rem">⚠</div>
+        <div style="font-size:3rem; margin-bottom:1rem">WARN</div>
         <h1 style="font-size:1.5rem; color:#ff4444; margin-bottom:0.5rem">
           Application Failed to Start
         </h1>

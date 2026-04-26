@@ -23,24 +23,50 @@ import { sleep, showToast, escapeHtml } from '../utils/helperFunctions.js';
 // ══════════════════════════════════════════════════════════════════════════
 
 const TOPOLOGY = {
+  zones: [
+    {
+      id: 'left-lan',
+      x: 22,
+      y: 34,
+      width: 350,
+      height: 292,
+      title: 'LAN-A',
+      subnet: '192.168.1.0/24',
+      fill: 'rgba(248, 216, 120, 0.08)',
+      stroke: 'rgba(248, 216, 120, 0.55)',
+      strokeDasharray: '4 3',
+    },
+    {
+      id: 'right-lan',
+      x: 548,
+      y: 34,
+      width: 350,
+      height: 292,
+      title: 'LAN-B',
+      subnet: '192.168.2.0/24',
+      fill: 'rgba(149, 196, 255, 0.08)',
+      stroke: 'rgba(149, 196, 255, 0.52)',
+      strokeDasharray: '4 3',
+    },
+  ],
   nodes: [
-    { id: 'pca', type: 'pc', label: 'PC-A', x: 80, y: 100, ip: '10.0.1.10' },
-    { id: 'sw1', type: 'switch', label: 'SW1', x: 220, y: 100 },
-    { id: 'pcb', type: 'pc', label: 'PC-B', x: 80, y: 280, ip: '10.0.2.10' },
-    { id: 'sw2', type: 'switch', label: 'SW2', x: 220, y: 280 },
-    { id: 'r1', type: 'router', label: 'R1', x: 420, y: 190 },
-    { id: 'r2', type: 'router', label: 'R2', x: 620, y: 100, ip: '172.16.0.1' },
-    { id: 'isp', type: 'cloud', label: 'Internet', x: 620, y: 280, ip: '203.0.113.1' },
-    { id: 'server', type: 'server', label: 'Server', x: 720, y: 100, ip: '192.168.1.10' },
+    { id: 'pca', type: 'pc', label: 'PC1', x: 64, y: 118, ip: '.11' },
+    { id: 'pcb', type: 'pc', label: 'PC2', x: 64, y: 248, ip: '.12' },
+    { id: 'sw1', type: 'switch', label: 'SW1', x: 205, y: 184 },
+    { id: 'internet', type: 'cloud', label: 'Internet', x: 460, y: 76, labelY: -18, ip: '0.0.0.0' },
+    { id: 'r1', type: 'router', label: 'R1', x: 460, y: 184, ip: '.1 / .1' },
+    { id: 'sw2', type: 'switch', label: 'SW2', x: 705, y: 184 },
+    { id: 'server', type: 'pc', label: 'PC3', x: 842, y: 118, ip: '.11' },
+    { id: 'isp', type: 'pc', label: 'PC4', x: 842, y: 248, ip: '.12' },
   ],
   links: [
-    { from: 'pca', to: 'sw1', label: 'Fa0/1' },
-    { from: 'sw1', to: 'r1', label: 'Gi0/0', subnet: '10.0.1.0/24' },
-    { from: 'pcb', to: 'sw2', label: 'Fa0/1' },
-    { from: 'sw2', to: 'r1', label: 'Gi0/1', subnet: '10.0.2.0/24' },
-    { from: 'r1', to: 'r2', label: 'Gi0/2', subnet: '172.16.0.0/30' },
-    { from: 'r1', to: 'isp', label: 'Gi0/3', subnet: '203.0.113.0/30' },
-    { from: 'r2', to: 'server', label: 'Gi0/1', subnet: '192.168.1.0/24' },
+    { from: 'pca', to: 'sw1', label: 'G0/1' },
+    { from: 'pcb', to: 'sw1', label: 'G0/2' },
+    { from: 'r1', to: 'internet', label: 'G0/2' },
+    { from: 'sw1', to: 'r1', label: 'G0/0', subnet: '192.168.1.0/24' },
+    { from: 'r1', to: 'sw2', label: 'G0/1', subnet: '192.168.2.0/24' },
+    { from: 'sw2', to: 'server', label: 'G0/1' },
+    { from: 'sw2', to: 'isp', label: 'G0/2' },
   ],
 };
 
@@ -51,7 +77,7 @@ const TOPOLOGY = {
 const ROUTING_TABLE = [
   {
     id: 0,
-    network: '10.0.1.0',
+    network: '192.168.1.0',
     prefix: 24,
     nextHop: 'Direct',
     iface: 'Gi0/0',
@@ -60,12 +86,12 @@ const ROUTING_TABLE = [
     source: 'C',
     sourceLabel: 'Connected',
     nodeId: 'sw1',
-    desc: 'LAN-A Network',
+    desc: 'Subnet-A LAN',
     color: '#00e676',
   },
   {
     id: 1,
-    network: '10.0.2.0',
+    network: '192.168.2.0',
     prefix: 24,
     nextHop: 'Direct',
     iface: 'Gi0/1',
@@ -74,63 +100,65 @@ const ROUTING_TABLE = [
     source: 'C',
     sourceLabel: 'Connected',
     nodeId: 'sw2',
-    desc: 'LAN-B Network',
+    desc: 'Subnet-B LAN',
     color: '#00e676',
   },
   {
     id: 2,
-    network: '10.0.0.0',
-    prefix: 8,
-    nextHop: '172.16.0.1',
-    iface: 'Gi0/2',
+    network: '192.168.0.0',
+    prefix: 16,
+    nextHop: '192.168.2.254',
+    iface: 'Gi0/1',
     ad: 90,
     metric: 156160,
     source: 'D',
     sourceLabel: 'EIGRP',
-    nodeId: 'r2',
-    desc: 'EIGRP Summary Route',
+    nodeId: 'sw2',
+    desc: 'EIGRP Campus Summary',
     color: '#ffb800',
   },
   {
     id: 3,
-    network: '172.16.0.0',
-    prefix: 16,
-    nextHop: '172.16.0.1',
-    iface: 'Gi0/2',
-    ad: 90,
-    metric: 28160,
-    source: 'D',
-    sourceLabel: 'EIGRP',
-    nodeId: 'r2',
-    desc: 'Enterprise Network',
-    color: '#ffb800',
-  },
-  {
-    id: 4,
-    network: '172.16.1.0',
-    prefix: 24,
-    nextHop: '172.16.0.1',
-    iface: 'Gi0/2',
-    ad: 110,
-    metric: 20,
-    source: 'O',
-    sourceLabel: 'OSPF',
-    nodeId: 'r2',
-    desc: 'OSPF Route',
-    color: '#ef4444',
-  },
-  {
-    id: 5,
-    network: '192.168.1.0',
-    prefix: 24,
-    nextHop: '172.16.0.1',
-    iface: 'Gi0/2',
+    network: '192.168.2.0',
+    prefix: 25,
+    nextHop: '192.168.2.2',
+    iface: 'Gi0/1',
     ad: 110,
     metric: 30,
     source: 'O',
     sourceLabel: 'OSPF',
+    nodeId: 'sw2',
+    desc: 'OSPF Specific Segment',
+    color: '#ef4444',
+  },
+  {
+    id: 4,
+    network: '192.168.2.11',
+    prefix: 32,
+    nextHop: '192.168.2.11',
+    iface: 'Gi0/1',
+    ad: 110,
+    metric: 10,
+    source: 'O',
+    sourceLabel: 'OSPF',
     nodeId: 'server',
-    desc: 'DMZ Network',
+    path: ['r1', 'sw2', 'server'],
+    desc: 'Host Route to PC3',
+    color: '#ef4444',
+  },
+  {
+    id: 5,
+    network: '192.168.2.12',
+    prefix: 32,
+    nextHop: '192.168.2.12',
+    iface: 'Gi0/1',
+    ad: 110,
+    metric: 10,
+    source: 'O',
+    sourceLabel: 'OSPF',
+    nodeId: 'isp',
+    path: ['r1', 'sw2', 'isp'],
+    desc: 'Host Route to PC4',
     color: '#ef4444',
   },
   {
@@ -138,13 +166,14 @@ const ROUTING_TABLE = [
     network: '0.0.0.0',
     prefix: 0,
     nextHop: '203.0.113.1',
-    iface: 'Gi0/3',
+    iface: 'Gi0/2',
     ad: 1,
     metric: 0,
     source: 'S*',
     sourceLabel: 'Static',
-    nodeId: 'isp',
-    desc: 'Default Gateway',
+    nodeId: 'internet',
+    path: ['r1', 'internet'],
+    desc: 'Default Gateway to Internet',
     color: '#00d4ff',
   },
 ];
@@ -154,12 +183,11 @@ const ROUTING_TABLE = [
 // ══════════════════════════════════════════════════════════════════════════
 
 const SCENARIOS = [
-  { ip: '10.0.1.55', label: 'Local LAN-A', desc: 'Same subnet as PC-A' },
-  { ip: '10.0.2.100', label: 'Local LAN-B', desc: 'Reachable via Gi0/1' },
-  { ip: '10.5.5.5', label: '10.x.x.x Network', desc: 'Matches EIGRP summary' },
-  { ip: '172.16.5.1', label: '172.16.x.x', desc: 'Matches EIGRP 172.16/16' },
-  { ip: '172.16.1.50', label: 'Specific /24', desc: 'Longest match: OSPF /24' },
-  { ip: '192.168.1.50', label: 'DMZ Server', desc: 'Matches OSPF /24' },
+  { ip: '192.168.1.88', label: 'Subnet-A Host', desc: 'Local network via Gi0/0' },
+  { ip: '192.168.2.60', label: 'Subnet-B /25', desc: 'LPM prefers OSPF /25 over /24 and /16' },
+  { ip: '192.168.2.11', label: 'PC3 Host Route', desc: 'Most specific /32 route to PC3' },
+  { ip: '192.168.2.12', label: 'PC4 Host Route', desc: 'Most specific /32 route to PC4' },
+  { ip: '192.168.200.10', label: 'Campus Summary', desc: 'Matches EIGRP 192.168.0.0/16' },
   { ip: '8.8.8.8', label: 'Internet', desc: 'Default route' },
 ];
 
@@ -218,7 +246,7 @@ class RoutingTableSimulator {
             <a href="#/">Home</a> › <span>Simulations</span> › <span>Routing Table</span>
           </div>
           <h1 class="rts-header__title">
-            <span class="rts-header__icon">🌐</span>
+            <span class="rts-header__icon">NET</span>
             Routing Table Simulator
           </h1>
           <p class="rts-header__desc">
@@ -236,10 +264,10 @@ class RoutingTableSimulator {
             <!-- Topology -->
             <div class="rts-card rts-topology">
               <div class="rts-card__header">
-                <span>🖥️</span>
+                <span>HOST</span>
                 <span>Network Topology</span>
                 <button class="rts-mode-toggle" id="rts-mode-toggle">
-                  ${this._learningMode ? '🎓 Learning Mode: ON' : '🎯 Practice Mode'}
+                  ${this._learningMode ? 'STUDY Learning Mode: ON' : 'FOCUS Practice Mode'}
                 </button>
               </div>
               <div class="rts-topology__canvas" id="rts-canvas"></div>
@@ -254,7 +282,7 @@ class RoutingTableSimulator {
             <!-- Learning Panel -->
             <div class="rts-card rts-learning" id="rts-learning-panel">
               <div class="rts-card__header">
-                <span>🧠</span>
+                <span>LEARN</span>
                 <span>Router Decision Process</span>
               </div>
               <div class="rts-learning__steps" id="rts-learning-steps">
@@ -265,18 +293,18 @@ class RoutingTableSimulator {
             <!-- Packet Sender -->
             <div class="rts-card rts-sender">
               <div class="rts-card__header">
-                <span>📤</span>
+                <span>EXPORT</span>
                 <span>Packet Sender</span>
               </div>
               <div class="rts-sender__content">
                 <div class="rts-sender__input-group">
                   <label>Destination IP:</label>
                   <input type="text" id="rts-dest-ip" class="rts-sender__input" 
-                         value="10.0.1.55" placeholder="e.g., 192.168.1.1">
+                         value="192.168.2.11" placeholder="e.g., 192.168.2.60">
                 </div>
                 <div class="rts-sender__actions">
                   <button class="rts-btn rts-btn--primary" id="rts-send-btn">
-                    🚀 Send Packet
+                    START Send Packet
                   </button>
                   <button class="rts-btn rts-btn--secondary" id="rts-reset-btn">
                     ↺ Reset
@@ -298,7 +326,7 @@ class RoutingTableSimulator {
             <!-- Result Panel -->
             <div class="rts-card rts-result">
               <div class="rts-card__header">
-                <span id="rts-result-icon">📋</span>
+                <span id="rts-result-icon">LOG</span>
                 <span id="rts-result-title">Routing Decision</span>
               </div>
               <div class="rts-result__body" id="rts-result-body">
@@ -317,7 +345,7 @@ class RoutingTableSimulator {
             <!-- Routing Table -->
             <div class="rts-card rts-table-card">
               <div class="rts-card__header">
-                <span>📋</span>
+                <span>LOG</span>
                 <span>R1 Routing Table</span>
                 <span class="rts-table__entries">${ROUTING_TABLE.length} entries</span>
               </div>
@@ -370,7 +398,13 @@ class RoutingTableSimulator {
     this._diagram.init(
       this.container.querySelector('#rts-canvas'),
       TOPOLOGY,
-      { width: 860, height: 360 }
+      {
+        width: 920,
+        height: 360,
+        labelMode: 'compact',
+        compactPortLabels: true,
+        linkBadge: false,
+      }
     );
 
     this._bindEvents();
@@ -429,20 +463,41 @@ class RoutingTableSimulator {
   }
 
   _renderCliRoute() {
+    // Format interface names for CLI (full names like Packet Tracer)
+    const formatIface = (iface) => {
+      return iface.replace('Gi', 'GigabitEthernet').replace('Fa', 'FastEthernet');
+    };
+    
+    // Build route lines matching Packet Tracer format
     const routeLines = ROUTING_TABLE.map(r => {
-      const code = r.source;
       const color = r.color;
-      const line = r.source === 'C' 
-        ? `C      ${r.network}/${r.prefix} is directly connected, ${r.iface}`
-        : r.source === 'S*'
-        ? `S*     ${r.network}/${r.prefix} [${r.ad}/${r.metric}] via ${r.nextHop}, ${r.iface}`
-        : `${code}      ${r.network}/${r.prefix} [${r.ad}/${r.metric}] via ${r.nextHop}, ${r.iface}`;
+      const fullIface = formatIface(r.iface);
+      let line;
+      
+      if (r.source === 'C') {
+        // Connected routes: "C    192.168.1.0/24 is directly connected, GigabitEthernet0/0"
+        line = `${r.source.padEnd(5)}${r.network}/${r.prefix} is directly connected, ${fullIface}`;
+      } else if (r.source === 'S*') {
+        // Default route: "S*   0.0.0.0/0 [1/0] via 203.0.113.1, GigabitEthernet0/2"
+        line = `${r.source.padEnd(5)}${r.network}/${r.prefix} [${r.ad}/${r.metric}] via ${r.nextHop}, ${fullIface}`;
+      } else {
+        // Dynamic routes: "D    192.168.0.0/16 [90/156160] via 192.168.2.254, GigabitEthernet0/1"
+        line = `${r.source.padEnd(5)}${r.network}/${r.prefix} [${r.ad}/${r.metric}] via ${r.nextHop}, ${fullIface}`;
+      }
+      
       return `<div class="rts-cli__line" data-route="${r.id}" style="color:${color}">${line}</div>`;
     });
     
+    // Gateway of last resort
+    const defaultRoute = ROUTING_TABLE.find(r => r.source === 'S*');
+    const gatewayLine = defaultRoute 
+      ? `Gateway of last resort is ${defaultRoute.nextHop} to network 0.0.0.0`
+      : 'Gateway of last resort is not set';
+    
     return `
-      <div class="rts-cli__comment">Codes: C - Connected, S - Static,</div>
-      <div class="rts-cli__comment">D - EIGRP, O - OSPF, S* - Default</div>
+      <div class="rts-cli__comment" style="color:#7fa8c9">Codes: C - connected, S - static, D - EIGRP, EX - EIGRP external, O - OSPF, IA - OSPF inter area, S* - default</div>
+      <div style="height:12px"></div>
+      <div class="rts-cli__line" style="color:#4fc3f7">${gatewayLine}</div>
       <div style="height:8px"></div>
       ${routeLines.join('')}
     `;
@@ -450,14 +505,13 @@ class RoutingTableSimulator {
 
   _renderCliIntf() {
     const ifaces = [
-      { name: 'Gi0/0', ip: '10.0.1.1', status: 'up', proto: 'up' },
-      { name: 'Gi0/1', ip: '10.0.2.1', status: 'up', proto: 'up' },
-      { name: 'Gi0/2', ip: '172.16.0.2', status: 'up', proto: 'up' },
-      { name: 'Gi0/3', ip: '203.0.113.2', status: 'up', proto: 'up' },
+      { name: 'GigabitEthernet0/0', ip: '192.168.1.1', status: 'up', proto: 'up' },
+      { name: 'GigabitEthernet0/1', ip: '192.168.2.1', status: 'up', proto: 'up' },
+      { name: 'GigabitEthernet0/2', ip: '203.0.113.2', status: 'up', proto: 'up' },
     ];
     
     return ifaces.map(i => `
-      <div class="rts-cli__line" style="color:#00d4ff">${i.name.padEnd(10)}${i.ip.padEnd(15)}${i.status}   ${i.proto}</div>
+      <div class="rts-cli__line" style="color:#00d4ff">${i.name.padEnd(22)}${i.ip.padEnd(16)}${i.status.padEnd(7)}${i.proto}</div>
     `).join('');
   }
 
@@ -497,7 +551,7 @@ class RoutingTableSimulator {
     this.container.querySelector('#rts-mode-toggle')?.addEventListener('click', () => {
       this._learningMode = !this._learningMode;
       this.container.querySelector('#rts-mode-toggle').innerHTML = 
-        this._learningMode ? '🎓 Learning Mode: ON' : '🎯 Practice Mode';
+        this._learningMode ? 'STUDY Learning Mode: ON' : 'FOCUS Practice Mode';
     });
   }
 
@@ -507,7 +561,7 @@ class RoutingTableSimulator {
     if (this._running) return;
     
     if (!isValidIP(destIP)) {
-      this._showResult('❌ Invalid IP', `
+      this._showResult('X Invalid IP', `
         <p style="color:#ef4444">"${escapeHtml(destIP)}" is not a valid IPv4 address.</p>
         <p>Please enter a valid IP like 192.168.1.1</p>
       `, 'error');
@@ -523,7 +577,7 @@ class RoutingTableSimulator {
 
     // Step 1: Packet arrives
     this._setLearningStep(0);
-    this._showResult('📥 Packet Received', `
+    this._showResult('IMPORT Packet Received', `
       <p>Router received packet destined for <strong>${destIP}</strong></p>
       <p class="rts-result__sub">Analyzing routing table...</p>
     `, 'processing');
@@ -537,7 +591,7 @@ class RoutingTableSimulator {
 
     // Step 3: Scan table
     this._setLearningStep(2);
-    this._showResult('🔍 Scanning Routes', `
+    this._showResult('SEARCH Scanning Routes', `
       <p>Router scanning each route entry...</p>
       <p class="rts-result__sub">Looking for matching network</p>
     `, 'processing');
@@ -579,7 +633,7 @@ class RoutingTableSimulator {
           this._highlightRow(i, 'best');
           this._highlightCliRoute(i, 'best');
           
-          this._showResult('✅ Route Match!', `
+          this._showResult('OK Route Match!', `
             <p><strong>${route.network}/${route.prefix}</strong> matches!</p>
             <p class="rts-result__sub">Prefix length: /${route.prefix}</p>
           `, 'matched');
@@ -605,7 +659,7 @@ class RoutingTableSimulator {
           .map(r => `<span style="color:${r.color}">${r.network}/${r.prefix}</span>`)
           .join(', ');
         
-        this._showResult('🎯 Longest Prefix Match', `
+        this._showResult('FOCUS Longest Prefix Match', `
           <p>Multiple routes match! Router selects the <strong>longest prefix</strong>.</p>
           <p>Matched: ${otherMatches}</p>
           <p>Winner: <strong style="color:${bestRoute.color}">${bestRoute.network}/${bestRoute.prefix}</strong> (/${bestRoute.prefix} bits)</p>
@@ -619,7 +673,7 @@ class RoutingTableSimulator {
       this._highlightRow(bestIndex, 'winner');
       this._highlightCliRoute(bestIndex, 'winner');
 
-      this._showResult('🚀 Forwarding Packet', `
+      this._showResult('START Forwarding Packet', `
         <div class="rts-result__winner">
           <span class="rts-result__route">
             <strong style="color:${bestRoute.color}">${bestRoute.network}/${bestRoute.prefix}</strong>
@@ -646,7 +700,7 @@ class RoutingTableSimulator {
       
     } else {
       // No route found
-      this._showResult('❌ No Route Found', `
+      this._showResult('X No Route Found', `
         <p>Destination <strong>${destIP}</strong> does not match any route in the table.</p>
         <p>The packet would be <strong>dropped</strong> (undeliverable).</p>
         <p class="rts-result__hint">This would trigger an ICMP Destination Unreachable message.</p>
@@ -661,7 +715,7 @@ class RoutingTableSimulator {
   async _animatePacketFromSource(destIP) {
     const abort = () => this._destroyed || !this._running || !this.container;
     
-    // Start from PC-A (source)
+    // Start from PC1 (source)
     await this._diagram.animatePacket(['pca', 'sw1'], {
       type: 'data', label: destIP, speed: 500,
     });
@@ -680,8 +734,12 @@ class RoutingTableSimulator {
     await sleep(500);
     if (abort()) return;
     
-    // Forward to next hop
-    await this._diagram.animatePacket(['r1', route.nodeId], {
+    // Forward through selected hop path (host routes can have extra hops)
+    const hopPath = Array.isArray(route.path) && route.path.length >= 2
+      ? route.path
+      : ['r1', route.nodeId];
+
+    await this._diagram.animatePacket(hopPath, {
       type: 'data', label: destIP, speed: 600,
     });
   }
@@ -697,13 +755,14 @@ class RoutingTableSimulator {
   }
 
   _highlightCliRoute(index, state) {
-    const lines = this.container?.querySelectorAll('#rts-cli-route .rts-cli__line');
-    lines?.forEach((line, i) => {
-      if (i === index + 3) { // Skip comments
-        line.className = 'rts-cli__line';
-        if (state !== 'no-match') line.classList.add(`rts-cli__line--${state}`);
-      }
-    });
+    const route = ROUTING_TABLE[index];
+    if (!route) return;
+
+    const line = this.container?.querySelector(`#rts-cli-route .rts-cli__line[data-route="${route.id}"]`);
+    if (!line) return;
+
+    line.className = 'rts-cli__line';
+    if (state !== 'no-match') line.classList.add(`rts-cli__line--${state}`);
   }
 
   _resetHighlight() {
@@ -748,7 +807,7 @@ class RoutingTableSimulator {
     this._setLearningStep(-1);
     this._diagram?.reset();
     
-    this._showResult('📋 Routing Decision', `
+    this._showResult('LOG Routing Decision', `
       <p>Enter a destination IP address and click <strong>Send Packet</strong> to see how the router selects the best route.</p>
       <div class="rts-result__hint">
         <strong>Tip:</strong> The router uses Longest Prefix Match — the route with the most specific (longest) prefix wins!
@@ -756,7 +815,7 @@ class RoutingTableSimulator {
     `, 'info');
     
     const input = this.container?.querySelector('#rts-dest-ip');
-    if (input) input.value = '10.0.1.55';
+    if (input) input.value = '192.168.2.11';
   }
 
   _saveProgress() {
