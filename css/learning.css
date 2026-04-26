@@ -521,6 +521,62 @@
   font-size: var(--text-sm);
 }
 
+/* Domain start/continue button */
+.domain-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-6);
+  font-family: var(--font-display);
+  font-size: var(--text-base);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-decoration: none;
+  border-radius: var(--radius-lg);
+  border: 2px solid var(--path-color);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--path-color) 15%, transparent), transparent);
+  color: var(--path-color);
+  transition: all var(--transition-base);
+  cursor: pointer;
+  min-width: 200px;
+}
+
+.domain-btn:hover {
+  background: var(--path-color);
+  color: var(--color-bg-deepest);
+  box-shadow: 0 0 24px color-mix(in srgb, var(--path-color) 60%, transparent);
+  transform: translateY(-2px);
+}
+
+.domain-btn--start {
+  animation: domainBtnPulse 2.5s ease-in-out infinite;
+}
+
+@keyframes domainBtnPulse {
+  0%, 100% {
+    box-shadow: 0 0 8px color-mix(in srgb, var(--path-color) 30%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 20px color-mix(in srgb, var(--path-color) 55%, transparent);
+  }
+}
+
+.domain-btn--continue {
+  border-style: dashed;
+}
+
+.domain-btn--complete {
+  background: var(--color-success);
+  border-color: var(--color-success);
+  color: var(--color-bg-deepest);
+}
+
+.domain-btn--complete:hover {
+  box-shadow: 0 0 20px color-mix(in srgb, var(--color-success) 60%, transparent);
+}
+
 /* ═══════════════════════════════════════════
    PATH LANDING PAGE — Timeline
    ═══════════════════════════════════════════ */

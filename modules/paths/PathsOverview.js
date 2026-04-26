@@ -114,7 +114,8 @@ class PathsOverview {
           </div>
 
           ${vm.isUnlocked ? `
-            <a href="#/paths/${path.id}" class="btn btn-primary domain-info-panel__action">${actionText}</a>
+            <a href="#/paths/${path.id}" class="domain-btn domain-btn--${vm.isComplete ? 'complete' : vm.pathDone > 0 ? 'continue' : 'start'}"
+               style="--path-color: ${path.color}">${actionText}</a>
           ` : `
             <div class="domain-info-panel__locked">
               ${renderTokenIcon('LOCK', 'path-status-icon')}
